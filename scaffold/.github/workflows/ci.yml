@@ -1,0 +1,105 @@
+# ci: instradatore del prodotto. Per ogni componente chiama la stazione giusta di H-EALTH/shared-workflows.
+# Pinna SEMPRE il tag completo di shared-workflows (ADR 0003): mai @v1, mai @main.
+# Trigger: pull_request verso dev e main; push su dev e main. `edited` serve a pr-checks, che legge la
+# descrizione della PR (Closes / Part of, definizione di fatto): correggerla fa ripartire la CI.
+# Sette job più il gate. Dopo discover, pr-checks, lint, test e scan partono in parallelo; build ed e2e solo
+# su push (immagini sha-<short> su GHCR, test di sistema sul prodotto completo).
+# I componenti non sono elencati a mano: `discover` legge product.yaml e i component.yaml, verifica le
+# convenzioni e restituisce la matrix (nome, cartella, kind, arc). Un manifest non valido fa fallire la CI.
+# `ci-ok` ha un nome fisso ed è l'unico check obbligatorio della branch protection: i nomi dei job in
+# matrix cambiano con i componenti. È verde se tutti i job precedenti sono success o skipped.
+# Il nome del prodotto su GHCR è il nome del repository (minuscolo): ghcr.io/h-ealth/<repo>/<componente>.
+# Secret richiesto: LINEAR_API_KEY (pr-checks legge il documento Requisiti del progetto Linear).
+name: ci
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [dev, main]
+
+jobs:
+  discover:
+    permissions: { contents: read }
+    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.5.0
+
+  pr-checks:
+    needs: discover
+    if: github.event_name == 'pull_request'
+    permissions: { contents: read, pull-requests: read }
+    uses: H-EALTH/shared-workflows/.github/workflows/pr-checks.yml@v0.5.0
+    with:
+      product: ${{ needs.discover.outputs.product }}
+    secrets:
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+
+  lint:
+    needs: discover
+    name: lint (${{ matrix.component.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJSON(needs.discover.outputs.components) }}
+    permissions: { contents: read }
+    uses: H-EALTH/shared-workflows/.github/workflows/lint.yml@v0.5.0
+    with:
+      path: ${{ matrix.component.path }}
+      kind: ${{ matrix.component.kind }}
+
+  test:
+    needs: discover
+    name: test (${{ matrix.component.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJSON(needs.discover.outputs.components) }}
+    permissions: { contents: read }
+    uses: H-EALTH/shared-workflows/.github/workflows/test.yml@v0.5.0
+    with:
+      path: ${{ matrix.component.path }}
+      kind: ${{ matrix.component.kind }}
+      copertura-minima: ${{ fromJSON(needs.discover.outputs.product).copertura_minima }}
+
+  scan:
+    needs: discover
+    name: scan (${{ matrix.component.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJSON(needs.discover.outputs.components) }}
+    permissions: { contents: read }
+    uses: H-EALTH/shared-workflows/.github/workflows/scan.yml@v0.5.0
+    with:
+      path: ${{ matrix.component.path }}
+
+  build:
+    needs: [discover, lint, test, scan]
+    if: github.event_name == 'push'
+    name: build (${{ matrix.component.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJSON(needs.discover.outputs.components) }}
+    permissions: { contents: read, packages: write }
+    uses: H-EALTH/shared-workflows/.github/workflows/build.yml@v0.5.0
+    with:
+      path: ${{ matrix.component.path }}
+      image: ghcr.io/h-ealth/${{ github.event.repository.name }}/${{ matrix.component.name }}
+
+  e2e:
+    needs: build
+    if: github.event_name == 'push'
+    permissions: { contents: read, packages: read }
+    uses: H-EALTH/shared-workflows/.github/workflows/e2e.yml@v0.5.0
+
+  ci-ok:
+    needs: [discover, pr-checks, lint, test, scan, build, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Tutti i job verdi (pr-checks è skipped su push, build ed e2e sulle PR)"
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null

@@ -1,0 +1,5 @@
+# Manifest del prodotto (ADR 0008). Lo legge `discover` di H-EALTH/shared-workflows.
+codice: SO                                   # prefisso dei documenti QMS: SO-ARC-001, SO-REC-001, SO-REC-002
+tag: so-ulss2                                # prefisso del tag di versione: so-ulss2-vX.Y.Z (HE-SOP-004 par. 2.1)
+copertura_minima: 80                         # soglia dei test di unità e integrazione, in percento (HE-TPL-003 par. 4)
+linear_progetto: "Sale Operatorie — Pilota ULSS2"   # progetto Linear con i documenti User Need e Requisiti

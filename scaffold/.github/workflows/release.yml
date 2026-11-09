@@ -1,0 +1,26 @@
+# release: al push di un tag <prefix>-vX.Y.Z (prefisso `tag` di product.yaml) chiama la stazione di rilascio
+# di H-EALTH/shared-workflows: promote, test-evidence, soup-evidence, traceability, release. Non costruisce
+# nulla: aggiunge il tag di versione ai digest già pubblicati dalla CI di main e crea la Release
+# «candidate <tag>» con le registrazioni da allegare al documento di messa in esercizio (HE-TPL-006).
+# Il trigger accetta ogni tag *-v*: promote rifiuta quelli con prefisso diverso o fuori da main.
+# Permessi: contents write (Release), packages write (tag su GHCR), actions read (artifact del run ci),
+# pull-requests read (autori e approvatori). Secret: LINEAR_API_KEY (documenti User Need e Requisiti).
+name: release
+on:
+  push:
+    tags: ["*-v*"]
+
+jobs:
+  discover:
+    permissions: { contents: read }
+    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.5.0
+
+  release:
+    needs: discover
+    permissions: { contents: write, packages: write, actions: read, pull-requests: read }
+    uses: H-EALTH/shared-workflows/.github/workflows/release.yml@v0.5.0
+    with:
+      components: ${{ needs.discover.outputs.components }}
+      product: ${{ needs.discover.outputs.product }}
+    secrets:
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}

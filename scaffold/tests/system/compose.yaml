@@ -1,0 +1,22 @@
+# Compose dei test di sistema (e2e): le immagini arrivano da artifacts.txt del run ci, per digest.
+# Variabili: IMAGE_<COMPONENTE> (nome della cartella in maiuscolo, `-` e `.` → `_`).
+# Ogni servizio ha un healthcheck: `docker compose up --wait` aspetta che siano tutti pronti.
+services:
+  backend:
+    image: ${IMAGE_BACKEND}
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  frontend:
+    image: ${IMAGE_FRONTEND}
+    ports: ["8080:8080"]
+    depends_on:
+      backend: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20

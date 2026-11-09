@@ -1,0 +1,3 @@
+# Manifest di componente (ADR 0007). La cartella è il nome del componente e dell'immagine su GHCR.
+kind: python     # python | node
+arc: ARC-002     # codice del componente in docs/architecture/<codice>-ARC-001.md
