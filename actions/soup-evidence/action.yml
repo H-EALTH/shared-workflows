@@ -1,0 +1,37 @@
+# soup-evidence — allegato 5 di HE-TPL-006 (scan-report.csv dai report Trivy del run ci), punto 1
+# della lista SOUP (nome, produttore, versione: HE-SOP-004 par. 3.1) generato dai file di dipendenza
+# e dalla SBOM, confronto con docs/<PROD>-REC-001_Lista-SOUP.csv committata (CHK-021, blocca se
+# divergono) e differenza rispetto al tag precedente (soup-diff.csv, alimenta HE-TPL-006 par. 6).
+name: soup-evidence
+description: Rapporto delle scansioni, lista SOUP aggiornata e differenza rispetto al tag precedente
+inputs:
+  components:
+    description: componenti in JSON (output `components` di discover)
+    required: true
+  product:
+    description: product.yaml in JSON (output `product` di discover)
+    required: true
+  evidence:
+    description: cartella con gli artifact scan-<comp>/ e scan-<comp>-image/ del run ci
+    required: true
+  sbom:
+    description: cartella con sbom-<comp>.spdx.json (job promote)
+    required: true
+  tag:
+    description: tag di versione in corso, es. so-ulss2-v1.2.0
+    required: true
+  out:
+    description: cartella di uscita
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        COMPONENTS: ${{ inputs.components }}
+        PRODUCT: ${{ inputs.product }}
+        EVIDENCE: ${{ inputs.evidence }}
+        SBOM: ${{ inputs.sbom }}
+        TAG: ${{ inputs.tag }}
+        OUT: ${{ inputs.out }}
+      run: python3 -I "${{ github.action_path }}/main.py"

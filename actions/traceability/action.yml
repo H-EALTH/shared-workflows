@@ -1,0 +1,34 @@
+# traceability — genera la matrice di tracciabilità (HE-SOP-003 par. 5, 13 colonne fisse) da cinque
+# fonti: documenti User Need e Requisiti del progetto Linear, piè delle issue, relazione issue →
+# sotto-issue → pull request (Closes / Part of), nomi dei test di integrazione e di sistema (JUnit del
+# run ci), rapporti di prova manuale HE-TPL-024 in docs/. Deterministica: legge solo codici e
+# collegamenti. Fallisce su CHK-001, 002, 003, 004, 006. Congela i due export Linear.
+name: traceability
+description: Matrice di tracciabilità <PROD>-REC-002 ed export congelati di User Need e Requisiti
+inputs:
+  components:
+    description: componenti in JSON (output `components` di discover)
+    required: true
+  product:
+    description: product.yaml in JSON (output `product` di discover)
+    required: true
+  evidence:
+    description: cartella con gli artifact test-<comp>/ ed e2e/ del run ci
+    required: true
+  tag:
+    description: tag di versione, es. so-ulss2-v1.2.0
+    required: true
+  out:
+    description: cartella di uscita
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        COMPONENTS: ${{ inputs.components }}
+        PRODUCT: ${{ inputs.product }}
+        EVIDENCE: ${{ inputs.evidence }}
+        TAG: ${{ inputs.tag }}
+        OUT: ${{ inputs.out }}
+      run: python3 -I "${{ github.action_path }}/main.py"
