@@ -1,0 +1,27 @@
+# release-notes — allegato 3 di HE-TPL-006: le pull request fuse dal tag precedente, con autore e
+# approvatori (GitHub API), in pull-requests.csv; e il corpo della Release in notes.md.
+name: release-notes
+description: Elenco delle pull request fuse dal tag precedente, con autore e approvatori
+inputs:
+  product:
+    description: product.yaml in JSON (output `product` di discover)
+    required: true
+  tag:
+    description: tag di versione, es. so-ulss2-v1.2.0
+    required: true
+  artifacts:
+    description: percorso di artifacts.txt (un ref@digest per riga)
+    required: true
+  out:
+    description: cartella di uscita
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PRODUCT: ${{ inputs.product }}
+        TAG: ${{ inputs.tag }}
+        ARTIFACTS: ${{ inputs.artifacts }}
+        OUT: ${{ inputs.out }}
+      run: python3 -I "${{ github.action_path }}/main.py"

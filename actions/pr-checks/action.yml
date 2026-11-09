@@ -1,0 +1,20 @@
+# pr-checks — regole QMS sulla pull request (HE-SOP-003 par. 4 e 4.1, HE-SOP-004 par. 2, CHK-001,
+# CHK-005, CHK-008, CHK-019). Legge la PR con `gh`, i file toccati dal checkout, i codici REQ- dal
+# documento Requisiti di Linear e i codici ARC- da docs/architecture/<PROD>-ARC-001.md.
+name: pr-checks
+description: Verifica nome del branch, Closes/Part of, definizione di fatto, codici dei test e FROM pinnati
+inputs:
+  product:
+    description: product.yaml in JSON (output `product` di discover)
+    required: true
+  pr:
+    description: numero della pull request
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PRODUCT: ${{ inputs.product }}
+        PR: ${{ inputs.pr }}
+      run: python3 -I "${{ github.action_path }}/main.py"
