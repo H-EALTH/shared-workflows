@@ -1,6 +1,6 @@
-# test-evidence — fonde i JUnit del run ci (test-<comp>, e2e) in test-report.csv (allegato 1 di
+# test-evidence — fonde i JUnit del run ci (test-<comp>, verify) in test-report.csv (allegato 1 di
 # HE-TPL-006) ed estrae la copertura per componente in coverage.csv. Fallisce se manca un JUnit
-# atteso: una prova mancante non è una prova (ADR 0006, HE-SOP-005 par. 3.3).
+# atteso: una prova mancante non è una prova (HE-SOP-005 par. 3.3).
 name: test-evidence
 description: Rapporto dei test e copertura dagli artifact del run ci del commit taggato
 inputs:
@@ -11,7 +11,7 @@ inputs:
     description: product.yaml in JSON (output `product` di discover)
     required: true
   evidence:
-    description: cartella con gli artifact scaricati (test-<comp>/, e2e/)
+    description: cartella con gli artifact scaricati (test-<comp>/, verify/)
     required: true
   out:
     description: cartella di uscita

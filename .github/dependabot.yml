@@ -1,4 +1,4 @@
-# Dependabot tiene aggiornati i `uses:` dei workflow di shared-workflows (ADR 0003):
+# Dependabot tiene aggiornati i `uses:` dei workflow di shared-workflows:
 # le action GitHub-owned al tag maggiore, quelle di terze parti allo SHA (il commento # vX.Y.Z
 # accanto allo SHA è ciò che gli permette di riconoscere la versione).
 version: 2

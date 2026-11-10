@@ -77,7 +77,7 @@ def main() -> None:
         "documento di messa in esercizio (HE-TPL-006) non è firmato. Gli allegati qui sotto sono le",
         "registrazioni generate dalla pipeline da allegare a quel documento.",
         "",
-        "## Artefatti (ADR 0001: il prodotto è la lista dei digest)",
+        "## Artefatti (il prodotto è la lista dei digest)",
         "",
     ]
     notes += [f"- `{a}`" for a in artifacts]

@@ -13,7 +13,7 @@ inputs:
     description: product.yaml in JSON (output `product` di discover)
     required: true
   evidence:
-    description: cartella con gli artifact test-<comp>/ ed e2e/ del run ci
+    description: cartella con gli artifact test-<comp>/ ed verify/ del run ci
     required: true
   tag:
     description: tag di versione, es. so-ulss2-v1.2.0

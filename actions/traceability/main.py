@@ -175,10 +175,10 @@ def main() -> None:
                     "level": level,
                 }
             )
-    e2e = evidence / "e2e" / "junit.xml"
-    if not e2e.is_file():
-        H.fail(f"manca {e2e} nel run ci")
-    for t in H.parse_junit(e2e):
+    verify = evidence / "verify" / "junit.xml"
+    if not verify.is_file():
+        H.fail(f"manca {verify} nel run ci")
+    for t in H.parse_junit(verify):
         code = H.test_code_of(t["name"])
         if not code:
             errors.append(f"CHK-003: test di sistema {t['name']} senza codice REQ- nel nome")

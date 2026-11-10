@@ -1,40 +1,8 @@
-# draft-docs — bozze dei documenti QMS della messa in esercizio, scritte da un LLM (API Anthropic) con le
-# skill di skills/ sul solo contenuto del bundle della Release e dei template in qms/templates/.
-# Ogni campo che richiede giudizio umano esce come [DA COMPILARE: ruolo]; front-matter `stato: bozza`.
-# Mai bloccante, mai asset della Release: è un software del sistema di gestione (HE-REC-002), non
-# una registrazione.
+# draft-docs — segnaposto: non ancora implementata.
 name: draft-docs
-description: Bozze di HE-TPL-006, HE-TPL-024 e, se il diff lo richiede, delle proposte DTE-001 e IFU-001
-inputs:
-  product:
-    description: product.yaml in JSON (output `product` di discover)
-    required: true
-  tag:
-    description: tag della Release pubblicata
-    required: true
-  bundle:
-    description: cartella con il contenuto di bundle-<tag>.zip
-    required: true
-  infra-changed:
-    description: "true se il diff dal tag precedente tocca infra/"
-    required: true
-  model:
-    description: modello Anthropic
-    required: false
-    default: claude-sonnet-5-5
-  out:
-    description: cartella di uscita
-    required: true
+description: Bozze dei documenti QMS della messa in esercizio (non ancora implementata)
 runs:
   using: composite
   steps:
     - shell: bash
-      env:
-        PRODUCT: ${{ inputs.product }}
-        TAG: ${{ inputs.tag }}
-        BUNDLE: ${{ inputs.bundle }}
-        INFRA_CHANGED: ${{ inputs.infra-changed }}
-        MODEL: ${{ inputs.model }}
-        OUT: ${{ inputs.out }}
-        ROOT: ${{ github.action_path }}/../..
-      run: python3 -I "${{ github.action_path }}/main.py"
+      run: echo "draft-docs non ancora implementata"

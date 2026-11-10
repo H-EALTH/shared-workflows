@@ -1,4 +1,4 @@
-"""test-evidence: test-report.csv e coverage.csv dagli artifact test-<comp> ed e2e del run ci.
+"""test-evidence: test-report.csv e coverage.csv dagli artifact test-<comp> ed verify del run ci.
 
 Variabili: COMPONENTS (JSON), PRODUCT (JSON), EVIDENCE (cartella), OUT (cartella).
 """
@@ -47,9 +47,9 @@ def main() -> None:
         else:
             missing.append(str(coverage))
 
-    e2e = ev / "e2e" / "junit.xml"
-    if e2e.is_file():
-        for t in H.parse_junit(e2e):
+    verify = ev / "verify" / "junit.xml"
+    if verify.is_file():
+        for t in H.parse_junit(verify):
             code = H.test_code_of(t["name"])
             rows.append(
                 {
@@ -63,7 +63,7 @@ def main() -> None:
                 }
             )
     else:
-        missing.append(str(e2e))
+        missing.append(str(verify))
 
     if missing:
         H.fail("JUnit o coverage attesi e non trovati nel run ci: " + ", ".join(missing))

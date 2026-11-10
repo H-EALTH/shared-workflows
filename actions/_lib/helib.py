@@ -239,7 +239,7 @@ def check_dod(body: str) -> list[str]:
 
 
 def check_dockerfile(text: str) -> list[str]:
-    """Ogni FROM pinnato al digest `@sha256:` (ADR 0005, CHK-019). Sono esclusi `FROM scratch`
+    """Ogni FROM pinnato al digest `@sha256:` (CHK-019). Sono esclusi `FROM scratch`
     e i riferimenti a stage precedenti (`FROM builder`)."""
     stages, problems = set(), []
     for n, line in enumerate(text.splitlines(), 1):

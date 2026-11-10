@@ -1,4 +1,4 @@
-"""pr-checks: le regole QMS sulla pull request. Non costruisce, non blocca build: solo ci-ok.
+"""pr-checks: le regole QMS sulla pull request. Non costruisce, non blocca build: solo gate.
 
 Variabili: PRODUCT (JSON di product.yaml), PR (numero), GH_TOKEN, GITHUB_REPOSITORY, LINEAR_API_KEY.
 """
@@ -79,7 +79,7 @@ def main() -> None:
                 if code not in req_codes:
                     errors.append(("test", f"{f}: `{code}` non esiste nel documento Requisiti di Linear"))
 
-    # 5. FROM pinnati nei Dockerfile toccati (ADR 0005, CHK-019)
+    # 5. FROM pinnati nei Dockerfile toccati (CHK-019)
     for f in changed:
         name = Path(f).name
         if not (name == "Dockerfile" or name.startswith("Dockerfile.") or name.endswith(".Dockerfile")):

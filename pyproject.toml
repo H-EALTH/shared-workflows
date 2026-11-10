@@ -1,4 +1,4 @@
-# Configurazione di ruff e pytest per gli script delle action (software del sistema di gestione).
+# Configurazione di ruff per gli script delle action (software del sistema di gestione).
 [tool.ruff]
 target-version = "py312"
 line-length = 120
@@ -6,6 +6,3 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["E402", "E501"]   # E402: sys.path.insert prima dell'import di helib; E501: il formato lo fa ruff format
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
