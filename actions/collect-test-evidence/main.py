@@ -1,4 +1,4 @@
-"""test-evidence: test-report.csv e coverage.csv dagli artifact test-<comp> ed verify del run ci.
+"""collect-test-evidence: test-report.csv e coverage.csv dagli artifact test-<comp> ed verify del run ci.
 
 Variabili: COMPONENTS (JSON), PRODUCT (JSON), EVIDENCE (cartella), OUT (cartella).
 """
@@ -73,7 +73,7 @@ def main() -> None:
 
     tot = {k: sum(1 for r in rows if r["esito"] == k) for k in ("PASS", "FAIL", "ERROR", "SKIP")}
     lines = [
-        "### test-evidence",
+        "### collect-test-evidence",
         "",
         f"{len(rows)} test · " + " · ".join(f"{k} {v}" for k, v in tot.items()),
         "",

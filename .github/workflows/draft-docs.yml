@@ -1,5 +1,5 @@
 # draft-docs: bozze dei documenti QMS della messa in esercizio, dopo il rilascio. Segnaposto: l'action
-# draft-docs non è ancora implementata. Mai bloccante, mai asset della Release. Il prodotto lo chiama
+# render-qms-drafts non è ancora implementata. Mai bloccante, mai asset della Release. Il prodotto lo chiama
 # da un workflow separato (workflow_run del rilascio o workflow_dispatch con il tag).
 name: draft-docs
 on:
@@ -24,4 +24,4 @@ jobs:
     permissions: { contents: read }
     continue-on-error: true
     steps:
-      - uses: H-EALTH/shared-workflows/actions/draft-docs@v0.5.0
+      - uses: H-EALTH/shared-workflows/actions/render-qms-drafts@v0.5.0

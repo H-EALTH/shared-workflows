@@ -1,4 +1,4 @@
-"""traceability: <PROD>-REC-002_Matrice-tracciabilita.csv + export congelati di User Need e Requisiti.
+"""build-traceability-matrix: <PROD>-REC-002_Matrice-tracciabilita.csv + export congelati di User Need e Requisiti.
 
 Variabili: COMPONENTS, PRODUCT (JSON), EVIDENCE, OUT (cartelle), TAG, LINEAR_API_KEY, GH_TOKEN,
 GITHUB_REPOSITORY, GITHUB_SHA.
@@ -265,7 +265,7 @@ def main() -> None:
     n_req = len(requisiti)
     covered = sum(1 for c in requisiti if any(r["requisito"] == c and r["esito_test"] == "PASS" for r in rows))
     lines = [
-        "### traceability",
+        "### build-traceability-matrix",
         "",
         f"{n_req} requisiti attivi, {covered} con test superato · {len(tests)} test con codice · "
         f"{len(manual)} casi manuali · {len(prs)} pull request fuse",

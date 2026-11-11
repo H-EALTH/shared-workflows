@@ -63,13 +63,13 @@ senza interpretarli.
 
 | Action | Usata da | Output |
 |---|---|---|
-| `discover` | `discover.yml` | `product`, `components` (JSON) |
-| `pr-checks` | `pr-checks.yml` | esito del job |
-| `test-evidence` | `release.yml` | `test-report.csv`, `coverage.csv` |
-| `soup-evidence` | `release.yml` | `scan-report.csv`, `<PROD>-REC-001_Lista-SOUP.csv`, `soup-diff.csv` |
-| `traceability` | `release.yml` | `<PROD>-REC-002_Matrice-tracciabilita.csv`, `UserNeed_*.md`, `Requisiti_*.md` |
-| `release-notes` | `release.yml` | `pull-requests.csv`, corpo della Release |
-| `draft-docs` | `draft-docs.yml` | segnaposto, nessun output |
+| `parse-manifests` | `discover.yml` | `product`, `components` (JSON) |
+| `validate-pr` | `pr-checks.yml` | esito del job |
+| `collect-test-evidence` | `release.yml` | `test-report.csv`, `coverage.csv` |
+| `build-soup-list` | `release.yml` | `scan-report.csv`, `<PROD>-REC-001_Lista-SOUP.csv`, `soup-diff.csv` |
+| `build-traceability-matrix` | `release.yml` | `<PROD>-REC-002_Matrice-tracciabilita.csv`, `UserNeed_*.md`, `Requisiti_*.md` |
+| `collect-release-notes` | `release.yml` | `pull-requests.csv`, corpo della Release |
+| `render-qms-drafts` | `draft-docs.yml` | segnaposto, nessun output |
 
 ## Stato dell'enforcement
 

@@ -1,8 +1,0 @@
-# draft-docs — segnaposto: non ancora implementata.
-name: draft-docs
-description: Bozze dei documenti QMS della messa in esercizio (non ancora implementata)
-runs:
-  using: composite
-  steps:
-    - shell: bash
-      run: echo "draft-docs non ancora implementata"

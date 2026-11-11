@@ -1,4 +1,4 @@
-"""soup-evidence: scan-report.csv, <PROD>-REC-001_Lista-SOUP.csv aggiornata, soup-diff.csv.
+"""build-soup-list: scan-report.csv, <PROD>-REC-001_Lista-SOUP.csv aggiornata, soup-diff.csv.
 
 Variabili: COMPONENTS, PRODUCT (JSON), EVIDENCE, SBOM, OUT (cartelle), TAG.
 Regole (HE-SOP-004 par. 3.1): la pipeline genera il punto 1 (nome, produttore, versione) dai file di
@@ -334,7 +334,7 @@ def main() -> None:
     H.write_csv(out / "soup-diff.csv", DIFF_HEADER, diff)
 
     lines = [
-        "### soup-evidence",
+        "### build-soup-list",
         "",
         f"{len(gen)} componenti di terzi diretti · lista committata `{rec_path}` con {len(rows)} righe"
         + (f" ({len(placeholders)} segnaposto)" if placeholders else ""),

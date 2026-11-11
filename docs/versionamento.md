@@ -50,7 +50,7 @@ quelle GitHub-owned (`actions/*`) al tag maggiore.
 
 ## Gli script come software del sistema di gestione
 
-`actions/traceability`, `soup-evidence` e `test-evidence` producono
+`actions/build-traceability-matrix`, `build-soup-list` e `collect-test-evidence` producono
 registrazioni del sistema di gestione: sono software da validare (HE-SOP-003 par. 5, HE-REC-002). La
 validazione è il primo rilascio reale confrontato a mano con la matrice compilata; l'esito si
 registra in HE-REC-002 con la versione del tag.

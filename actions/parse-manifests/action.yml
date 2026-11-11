@@ -1,7 +1,7 @@
-# discover — legge product.yaml (radice) e i component.yaml (una cartella per componente), verifica le
+# parse-manifests — legge product.yaml (radice) e i component.yaml (una cartella per componente), verifica le
 # convenzioni di docs/ci.md (chiavi, kind, file obbligatori, arc presente in <PROD>-ARC-001.md, nomi
 # unici e minuscoli) e restituisce la matrix dei componenti. Un manifest non valido fa fallire la CI.
-name: discover
+name: parse-manifests
 description: Legge e verifica product.yaml e i component.yaml, restituisce prodotto e componenti in JSON
 outputs:
   product:

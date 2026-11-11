@@ -1,4 +1,4 @@
-"""release-notes: pull-requests.csv (allegato 3) e notes.md (corpo della Release candidate).
+"""collect-release-notes: pull-requests.csv (allegato 3) e notes.md (corpo della Release candidate).
 
 Variabili: PRODUCT (JSON), TAG, ARTIFACTS (file), OUT (cartella), GH_TOKEN, GITHUB_REPOSITORY,
 GITHUB_SHA. Le pull request sono quelle i cui commit stanno fra il tag precedente e questo
@@ -98,7 +98,7 @@ def main() -> None:
         f"- `bundle-{tag}.zip`: tutti gli allegati in un unico archivio",
     ]
     (out / "notes.md").write_text("\n".join(notes) + "\n", encoding="utf-8")
-    H.summary(f"### release-notes\n\n{len(rows)} pull request fuse da `{prev or 'inizio'}` a `{tag}`")
+    H.summary(f"### collect-release-notes\n\n{len(rows)} pull request fuse da `{prev or 'inizio'}` a `{tag}`")
 
 
 if __name__ == "__main__":

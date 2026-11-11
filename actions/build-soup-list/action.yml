@@ -1,8 +1,8 @@
-# soup-evidence — allegato 5 di HE-TPL-006 (scan-report.csv dai report Trivy del run ci), punto 1
+# build-soup-list — allegato 5 di HE-TPL-006 (scan-report.csv dai report Trivy del run ci), punto 1
 # della lista SOUP (nome, produttore, versione: HE-SOP-004 par. 3.1) generato dai file di dipendenza
 # e dalla SBOM, confronto con docs/<PROD>-REC-001_Lista-SOUP.csv committata (CHK-021, blocca se
 # divergono) e differenza rispetto al tag precedente (soup-diff.csv, alimenta HE-TPL-006 par. 6).
-name: soup-evidence
+name: build-soup-list
 description: Rapporto delle scansioni, lista SOUP aggiornata e differenza rispetto al tag precedente
 inputs:
   components:

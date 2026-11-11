@@ -1,4 +1,4 @@
-"""discover: legge product.yaml e i component.yaml, verifica le convenzioni e restituisce la matrix.
+"""parse-manifests: legge product.yaml e i component.yaml, verifica le convenzioni e restituisce la matrix.
 
 Uscite (GITHUB_OUTPUT): `product` (JSON di product.yaml) e `components` (JSON: lista di name, path,
 kind, arc, ordinata per path). I manifest sono YAML piatto (`chiave: valore`): li legge un parser
@@ -156,13 +156,13 @@ def main() -> None:
     if errors:
         for e in errors:
             print(f"::error::{e}")
-        H.summary("### discover\n\n" + "\n".join(f"- ❌ {e}" for e in errors))
+        H.summary("### parse-manifests\n\n" + "\n".join(f"- ❌ {e}" for e in errors))
         sys.exit(1)
 
     H.set_output("product", json.dumps(product, ensure_ascii=False))
     H.set_output("components", json.dumps(components, ensure_ascii=False))
     lines = [
-        "### discover",
+        "### parse-manifests",
         "",
         f"Prodotto `{product['codice']}` · tag `{product['tag']}-vX.Y.Z` · copertura minima {product['copertura_minima']}%",
         "",

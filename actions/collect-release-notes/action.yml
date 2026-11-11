@@ -1,6 +1,6 @@
-# release-notes — allegato 3 di HE-TPL-006: le pull request fuse dal tag precedente, con autore e
+# collect-release-notes — allegato 3 di HE-TPL-006: le pull request fuse dal tag precedente, con autore e
 # approvatori (GitHub API), in pull-requests.csv; e il corpo della Release in notes.md.
-name: release-notes
+name: collect-release-notes
 description: Elenco delle pull request fuse dal tag precedente, con autore e approvatori
 inputs:
   product:

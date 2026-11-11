@@ -1,0 +1,8 @@
+# render-qms-drafts — segnaposto: non ancora implementata.
+name: render-qms-drafts
+description: Bozze dei documenti QMS della messa in esercizio (non ancora implementata)
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: echo "render-qms-drafts non ancora implementata"

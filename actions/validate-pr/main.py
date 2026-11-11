@@ -1,4 +1,4 @@
-"""pr-checks: le regole QMS sulla pull request. Non costruisce, non blocca build: solo gate.
+"""validate-pr: le regole QMS sulla pull request. Non costruisce, non blocca build: solo gate.
 
 Variabili: PRODUCT (JSON di product.yaml), PR (numero), GH_TOKEN, GITHUB_REPOSITORY, LINEAR_API_KEY.
 """
@@ -90,7 +90,7 @@ def main() -> None:
             errors.append(("dockerfile", f"{f}: {p}"))
 
     lines = [
-        "### pr-checks",
+        "### validate-pr",
         "",
         f"PR #{pr} · branch `{branch}` · autore `{author}`",
         "",
@@ -110,7 +110,7 @@ def main() -> None:
         print(f"::error::{k}: {m}")
     if errors:
         sys.exit(1)
-    print("pr-checks: tutto in regola")
+    print("validate-pr: tutto in regola")
 
 
 def load_req_codes(product: dict) -> set[str]:
