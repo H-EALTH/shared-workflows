@@ -1,0 +1,84 @@
+# verify: test di sistema sul prodotto completo (CHK-002), con le immagini appena pubblicate da build,
+# per digest. Il ci.yml del prodotto lo chiama su push, dopo tutti i build.
+#   1. fonde gli artifact artifacts-<componente> in artifacts.txt (un ref@digest per riga);
+#   2. esporta IMAGE_<COMPONENTE> (nome in maiuscolo, `-` e `.` → `_`) per tests/system/compose.yaml;
+#   3. `docker compose up --wait` (ogni servizio ha un healthcheck);
+#   4. tests/system/seed.sh se esiste (dati sintetici, mai dati di paziente);
+#   5. pytest tests/system (dipendenze in tests/system/requirements.txt): test con il codice del
+#      requisito nel nome, `test_req_nnn_...`. Nessun test raccolto è un fallimento.
+# Artifact `verify` (junit.xml) e `artifacts` (artifacts.txt), 90 giorni: li recupera il rilascio.
+name: verify
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: versione di Python dei test di sistema
+        required: false
+        type: string
+        default: "3.12"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: read }
+    env:
+      COMPOSE_FILE: tests/system/compose.yaml
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: artifacts-*
+          path: ${{ runner.temp }}/artifacts
+      - name: Immagini
+        run: |
+          set -euo pipefail
+          cat "$RUNNER_TEMP"/artifacts/artifacts-*/artifacts.txt | sort > artifacts.txt
+          if [ ! -s artifacts.txt ]; then echo "::error::nessun artifacts-<componente> dal build"; exit 1; fi
+          while IFS= read -r ref; do
+            name=${ref%@*}; name=${name##*/}
+            var="IMAGE_$(printf '%s' "$name" | tr '[:lower:]' '[:upper:]' | tr -- '-.' '__')"
+            echo "$var=$ref" >> "$GITHUB_ENV"
+            echo "$var=$ref"
+          done < artifacts.txt
+
+      - name: Login GHCR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: pip
+          cache-dependency-path: tests/system/requirements.txt
+      - name: Dipendenze dei test
+        run: pip install -r tests/system/requirements.txt
+
+      - name: Avvio del prodotto
+        run: docker compose up --wait --wait-timeout 300
+      - name: Dati sintetici
+        run: if [ -f tests/system/seed.sh ]; then bash tests/system/seed.sh; fi
+      - name: Test di sistema
+        run: python -m pytest tests/system --junitxml=junit.xml
+
+      - name: Log dei servizi
+        if: failure()
+        run: docker compose logs --no-color --timestamps
+      - name: Arresto
+        if: always()
+        run: docker compose down --volumes || true
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verify
+          path: junit.xml
+          retention-days: 90
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: artifacts
+          path: artifacts.txt
+          retention-days: 90
+          if-no-files-found: error

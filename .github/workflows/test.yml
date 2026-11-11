@@ -1,0 +1,106 @@
+# test: test di unità e di integrazione di un componente, con copertura e soglia (CHK-010, 011). Il ci.yml
+# del prodotto lo chiama una volta per componente. python: pytest con pytest-cov; node: `npm test`
+# (vitest run) con @vitest/coverage-v8. Esegue le cartelle tests/unit e tests/integration che esistono.
+# junit.xml e coverage.xml (Cobertura) vanno nell'artifact test-<componente> (90 giorni): sono la prova
+# che test-evidence e traceability recuperano al rilascio.
+name: test
+on:
+  workflow_call:
+    inputs:
+      path:
+        description: cartella del componente
+        required: true
+        type: string
+      kind:
+        description: python | node
+        required: true
+        type: string
+      copertura-minima:
+        description: soglia di copertura in percento (copertura_minima di product.yaml)
+        required: true
+        type: number
+      python-version:
+        description: versione di Python per kind python
+        required: false
+        type: string
+        default: "3.12"
+      node-version:
+        description: versione di Node per kind node
+        required: false
+        type: string
+        default: "22"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    defaults:
+      run: { working-directory: "${{ inputs.path }}" }
+    env:
+      KIND: ${{ inputs.kind }}
+      COMPONENT_PATH: ${{ inputs.path }}
+      MIN: ${{ inputs.copertura-minima }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - id: name
+        run: echo "name=$(basename "$COMPONENT_PATH")" >> "$GITHUB_OUTPUT"
+
+      - if: inputs.kind == 'python'
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: pip
+          cache-dependency-path: ${{ inputs.path }}/requirements-dev.txt
+      - if: inputs.kind == 'node'
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.path }}/package-lock.json
+
+      - name: Dipendenze
+        run: |
+          case "$KIND" in
+            python)
+              if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+              pip install -r requirements-dev.txt ;;
+            node) npm ci ;;
+            *) echo "::error::kind '$KIND' non ammesso (python | node)"; exit 1 ;;
+          esac
+
+      - name: Test e copertura
+        run: |
+          set -uo pipefail
+          dirs=()
+          for d in tests/unit tests/integration; do [ -d "$d" ] && dirs+=("$d"); done
+          if [ ${#dirs[@]} -eq 0 ]; then
+            echo "::error::$COMPONENT_PATH non ha né tests/unit né tests/integration"
+            exit 1
+          fi
+          echo "cartelle: ${dirs[*]} · soglia di copertura: $MIN%"
+          case "$KIND" in
+            python)
+              python -m pytest "${dirs[@]}" --junitxml=junit.xml \
+                --cov=. --cov-report=term --cov-report=xml:coverage.xml --cov-fail-under="$MIN"
+              rc=$? ;;
+            node)
+              npm test -- "${dirs[@]}" \
+                --reporter=default --reporter=junit --outputFile.junit=junit.xml \
+                --coverage.enabled --coverage.provider=v8 \
+                --coverage.reporter=text --coverage.reporter=cobertura --coverage.reportsDirectory=coverage \
+                --coverage.thresholds.lines="$MIN"
+              rc=$?
+              if [ -f coverage/cobertura-coverage.xml ]; then cp coverage/cobertura-coverage.xml coverage.xml; fi ;;
+          esac
+          exit "$rc"
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-${{ steps.name.outputs.name }}
+          path: |
+            ${{ inputs.path }}/junit.xml
+            ${{ inputs.path }}/coverage.xml
+          retention-days: 90
+          if-no-files-found: warn

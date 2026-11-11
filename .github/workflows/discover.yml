@@ -1,0 +1,25 @@
+# discover: primo job di ci e release del prodotto. Legge product.yaml e i component.yaml, verifica le
+# convenzioni e restituisce `product` e `components` (la matrix degli altri job). Vedi docs/ci.md.
+name: discover
+on:
+  workflow_call:
+    outputs:
+      product:
+        description: product.yaml in JSON
+        value: ${{ jobs.discover.outputs.product }}
+      components:
+        description: componenti in JSON (lista di name, path, kind, arc)
+        value: ${{ jobs.discover.outputs.components }}
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    outputs:
+      product: ${{ steps.discover.outputs.product }}
+      components: ${{ steps.discover.outputs.components }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - id: discover
+        uses: H-EALTH/shared-workflows/actions/discover@v0.5.0

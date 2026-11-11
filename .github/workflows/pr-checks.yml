@@ -1,0 +1,35 @@
+# pr-checks: regole QMS sulla pull request (CHK-001, 005, 008, 019): nome del branch, Closes / Part of,
+# definizione di fatto, codici dei test, FROM pinnati. Solo su pull_request: il ci.yml del prodotto
+# ascolta anche `edited`, così correggere la descrizione fa ripartire il controllo. Blocca solo `gate`.
+name: pr-checks
+on:
+  workflow_call:
+    inputs:
+      product:
+        description: product.yaml in JSON (output `product` di discover)
+        required: true
+        type: string
+    secrets:
+      LINEAR_API_KEY:
+        description: lettura del documento Requisiti del progetto Linear
+        required: true
+
+jobs:
+  pr-checks:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, pull-requests: read }
+    steps:
+      - name: Solo su pull request
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "::error::pr-checks va chiamato solo su pull_request (evento: $GITHUB_EVENT_NAME)"
+          exit 1
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - uses: H-EALTH/shared-workflows/actions/pr-checks@v0.5.0
+        with:
+          product: ${{ inputs.product }}
+          pr: ${{ github.event.pull_request.number }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}

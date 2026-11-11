@@ -1,0 +1,88 @@
+# lint: analisi statica di un componente (CHK-012). Il ci.yml del prodotto lo chiama una volta per
+# componente (matrix di discover). python: ruff check, ruff format --check, mypy (da
+# requirements-dev.txt); node: npm run lint, npm run typecheck. Tutti i comandi girano anche se uno
+# fallisce; il log completo va nell'artifact lint-<componente> (30 giorni).
+name: lint
+on:
+  workflow_call:
+    inputs:
+      path:
+        description: cartella del componente
+        required: true
+        type: string
+      kind:
+        description: python | node
+        required: true
+        type: string
+      python-version:
+        description: versione di Python per kind python
+        required: false
+        type: string
+        default: "3.12"
+      node-version:
+        description: versione di Node per kind node
+        required: false
+        type: string
+        default: "22"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    defaults:
+      run: { working-directory: "${{ inputs.path }}" }
+    env:
+      KIND: ${{ inputs.kind }}
+      COMPONENT_PATH: ${{ inputs.path }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - id: name
+        run: echo "name=$(basename "$COMPONENT_PATH")" >> "$GITHUB_OUTPUT"
+
+      - if: inputs.kind == 'python'
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: pip
+          cache-dependency-path: ${{ inputs.path }}/requirements-dev.txt
+      - if: inputs.kind == 'node'
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.path }}/package-lock.json
+
+      - name: Dipendenze
+        run: |
+          case "$KIND" in
+            python) pip install -r requirements-dev.txt ;;
+            node)   npm ci ;;
+            *)      echo "::error::kind '$KIND' non ammesso (python | node)"; exit 1 ;;
+          esac
+
+      - name: Lint
+        run: |
+          set -uo pipefail
+          rc=0
+          run() {
+            echo "::group::$*"
+            "$@" 2>&1 | tee -a lint.log
+            local s=${PIPESTATUS[0]}
+            echo "::endgroup::"
+            if [ "$s" -ne 0 ]; then echo "::error::$* (uscita $s)"; rc=1; fi
+          }
+          : > lint.log
+          case "$KIND" in
+            python) run ruff check . ; run ruff format --check . ; run mypy . ;;
+            node)   run npm run lint ; run npm run typecheck ;;
+          esac
+          exit "$rc"
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-${{ steps.name.outputs.name }}
+          path: ${{ inputs.path }}/lint.log
+          retention-days: 30
+          if-no-files-found: ignore

@@ -1,0 +1,268 @@
+# release: rilascio del prodotto al push di un tag <prefix>-vX.Y.Z. Non costruisce nulla: ritrova gli
+# artefatti che la CI ha pubblicato da main per il commit taggato, ci aggiunge il tag di versione e
+# produce le registrazioni da allegare al documento di messa in esercizio (HE-TPL-006 par. 12).
+#   promote        tag conforme e su main, run ci verde; tag di versione sugli stessi digest (CHK-020)
+#   test-evidence  test-report.csv, coverage.csv (allegato 1)
+#   soup-evidence  scan-report.csv, <PROD>-REC-001_Lista-SOUP.csv, soup-diff.csv (allegato 5, CHK-021)
+#   traceability   <PROD>-REC-002_Matrice-tracciabilita.csv, export User Need e Requisiti (allegato 2)
+#   release        pull-requests.csv (allegato 3), Release «candidate <tag>» prerelease con tutti gli
+#                  allegati, singoli e in bundle-<tag>.zip
+# Le prove non si rifanno: JUnit, report Trivy e SBOM (allegato 4) sono quelli del run ci del commit.
+# Il chiamante concede contents: write, packages: write, actions: read, pull-requests: read.
+name: release
+on:
+  workflow_call:
+    inputs:
+      components:
+        description: componenti in JSON (output `components` di discover)
+        required: true
+        type: string
+      product:
+        description: product.yaml in JSON (output `product` di discover)
+        required: true
+        type: string
+      ci-workflow:
+        description: file del workflow di CI del prodotto
+        required: false
+        type: string
+        default: ci.yml
+    secrets:
+      LINEAR_API_KEY:
+        description: lettura dei documenti User Need e Requisiti e delle issue del progetto Linear
+        required: true
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write, actions: read }
+    outputs:
+      run-id: ${{ steps.run.outputs.id }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0, persist-credentials: false }
+
+      - name: Tag (formato e main)
+        env:
+          PRODUCT: ${{ inputs.product }}
+        run: |
+          set -euo pipefail
+          prefix=$(jq -r .tag <<< "$PRODUCT")
+          if [ "$GITHUB_REF_TYPE" != tag ]; then
+            echo "::error::release parte solo dal push di un tag (ref: $GITHUB_REF)"; exit 1
+          fi
+          if ! [[ "$TAG" =~ ^${prefix}-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag $TAG non conforme: atteso ${prefix}-vX.Y.Z"; exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::il commit $GITHUB_SHA non è su main"; exit 1
+          fi
+
+      - id: run
+        name: Run ci verde su main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_WORKFLOW: ${{ inputs.ci-workflow }}
+        run: |
+          set -euo pipefail
+          id=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$CI_WORKFLOW" --branch main --event push \
+                 --commit "$GITHUB_SHA" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$id" ]; then
+            echo "::error::nessun run ci verde su main per $GITHUB_SHA: aspettare la CI, poi ricreare tag e Release"
+            exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "run ci: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$id"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: artifacts
+          path: ${{ runner.temp }}/ci
+          run-id: ${{ steps.run.outputs.id }}
+          github-token: ${{ github.token }}
+
+      - name: Tag di versione sui digest (CHK-020)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPONENTS: ${{ inputs.components }}
+        run: |
+          set -euo pipefail
+          list="$RUNNER_TEMP/ci/artifacts.txt"
+          expected=$(jq -r '.[].name' <<< "$COMPONENTS" | sort)
+          found=$(sed -E 's/@.*//; s#.*/##' "$list" | sort)
+          if [ "$expected" != "$found" ]; then
+            echo "::error::artifacts.txt del run ci non corrisponde ai componenti: atteso [$(tr '\n' ' ' <<< "$expected")], trovato [$(tr '\n' ' ' <<< "$found")]"
+            exit 1
+          fi
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          echo "### promote $TAG" >> "$GITHUB_STEP_SUMMARY"
+          while IFS= read -r ref; do
+            repo=${ref%@*}; digest=${ref#*@}
+            docker buildx imagetools create --tag "$repo:$TAG" "$ref"
+            got=$(docker buildx imagetools inspect "$repo:$TAG" --format '{{json .Manifest}}' | jq -r .digest)
+            if [ "$got" != "$digest" ]; then
+              echo "::error::$repo:$TAG punta a $got invece di $digest"; exit 1
+            fi
+            echo "- \`$repo:$TAG\` → \`$digest\`" >> "$GITHUB_STEP_SUMMARY"
+          done < "$list"
+
+  test-evidence:
+    needs: promote
+    runs-on: ubuntu-latest
+    permissions: { contents: read, actions: read }
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: test-*
+          path: ${{ runner.temp }}/evidence
+          run-id: ${{ needs.promote.outputs.run-id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: verify
+          path: ${{ runner.temp }}/evidence/verify
+          run-id: ${{ needs.promote.outputs.run-id }}
+          github-token: ${{ github.token }}
+      - uses: H-EALTH/shared-workflows/actions/test-evidence@v0.5.0
+        with:
+          components: ${{ inputs.components }}
+          product: ${{ inputs.product }}
+          evidence: ${{ runner.temp }}/evidence
+          out: ${{ runner.temp }}/out
+      - uses: actions/upload-artifact@v7
+        with:
+          name: evidence-test
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error
+
+  soup-evidence:
+    needs: promote
+    runs-on: ubuntu-latest
+    permissions: { contents: read, actions: read }
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: scan-*
+          path: ${{ runner.temp }}/evidence
+          run-id: ${{ needs.promote.outputs.run-id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: sbom-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/sbom
+          run-id: ${{ needs.promote.outputs.run-id }}
+          github-token: ${{ github.token }}
+      - uses: H-EALTH/shared-workflows/actions/soup-evidence@v0.5.0
+        with:
+          components: ${{ inputs.components }}
+          product: ${{ inputs.product }}
+          evidence: ${{ runner.temp }}/evidence
+          sbom: ${{ runner.temp }}/sbom
+          tag: ${{ github.ref_name }}
+          out: ${{ runner.temp }}/out
+      - uses: actions/upload-artifact@v7
+        with:
+          name: evidence-soup
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error
+
+  traceability:
+    needs: promote
+    runs-on: ubuntu-latest
+    permissions: { contents: read, actions: read, pull-requests: read }
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: test-*
+          path: ${{ runner.temp }}/evidence
+          run-id: ${{ needs.promote.outputs.run-id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: verify
+          path: ${{ runner.temp }}/evidence/verify
+          run-id: ${{ needs.promote.outputs.run-id }}
+          github-token: ${{ github.token }}
+      - uses: H-EALTH/shared-workflows/actions/traceability@v0.5.0
+        with:
+          components: ${{ inputs.components }}
+          product: ${{ inputs.product }}
+          evidence: ${{ runner.temp }}/evidence
+          tag: ${{ github.ref_name }}
+          out: ${{ runner.temp }}/out
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: evidence-traceability
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error
+
+  release:
+    needs: [promote, test-evidence, soup-evidence, traceability]
+    runs-on: ubuntu-latest
+    permissions: { contents: write, actions: read, pull-requests: read }
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: evidence-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/out
+      - uses: actions/download-artifact@v8
+        with:
+          name: artifacts
+          path: ${{ runner.temp }}/out
+          run-id: ${{ needs.promote.outputs.run-id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: sbom-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/out
+          run-id: ${{ needs.promote.outputs.run-id }}
+          github-token: ${{ github.token }}
+      - uses: H-EALTH/shared-workflows/actions/release-notes@v0.5.0
+        with:
+          product: ${{ inputs.product }}
+          tag: ${{ github.ref_name }}
+          artifacts: ${{ runner.temp }}/out/artifacts.txt
+          out: ${{ runner.temp }}/out
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Release «candidate»
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/out"
+          mv "$OUT/notes.md" "$RUNNER_TEMP/notes.md"
+          (cd "$OUT" && zip -q -r "$RUNNER_TEMP/bundle-$TAG.zip" . -x '.*')
+          mv "$RUNNER_TEMP/bundle-$TAG.zip" "$OUT/"
+          if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease \
+              --title "candidate $TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          if ! gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber "$OUT"/*; then
+            echo "::error::allegati non caricati (Release immutabile?): una Release senza prove non è valida, ricrearla"
+            exit 1
+          fi
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --prerelease \
+            --title "candidate $TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          {
+            echo "### release $TAG"
+            echo
+            for f in "$OUT"/*; do echo "- \`$(basename "$f")\`"; done
+          } >> "$GITHUB_STEP_SUMMARY"

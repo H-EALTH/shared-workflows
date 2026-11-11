@@ -1,0 +1,63 @@
+# check: CI di shared-workflows (HE-REC-002). Gli script delle action sono software del sistema di
+# gestione: ogni modifica passa da PR con questi controlli.
+#   actionlint  sintassi ed espressioni dei workflow, shellcheck degli script `run:`
+#   ruff        lint e formato degli script Python delle action
+#   pin         i riferimenti interni H-EALTH/shared-workflows/...@vX.Y.Z citano un solo tag;
+#               le action di terze parti sono pinnate allo SHA completo
+name: check
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: { contents: read }
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - name: actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) 1.7.12 "$RUNNER_TEMP"
+          "$RUNNER_TEMP/actionlint" -color
+
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - run: pip install ruff==0.17.4
+      - run: ruff check actions
+      - run: ruff format --check actions
+
+  pin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - name: Pin interni, un solo tag
+        run: |
+          set -euo pipefail
+          tags=$(grep -rhoE 'H-EALTH/shared-workflows(/[^@[:space:]]*)?@v[0-9]+\.[0-9]+\.[0-9]+' .github/workflows actions docs README.md \
+                   | sed 's/.*@//' | sort -u)
+          echo "tag citati: $(printf '%s ' "$tags")"
+          if [ "$(printf '%s\n' "$tags" | grep -c .)" -ne 1 ]; then
+            grep -rnoE 'H-EALTH/shared-workflows(/[^@[:space:]]*)?@v[0-9]+\.[0-9]+\.[0-9]+' .github/workflows actions docs README.md
+            echo "::error::i riferimenti interni devono citare un solo tag (docs/versionamento.md)"
+            exit 1
+          fi
+      - name: Action di terze parti allo SHA
+        run: |
+          set -euo pipefail
+          bad=$(grep -rnE '^\s*(-\s*)?uses:' .github/workflows actions --include='*.yml' \
+                  | grep -vE 'uses:\s*(actions/|\./|H-EALTH/shared-workflows/)' \
+                  | grep -vE '@[0-9a-f]{40}(\s|$)' || true)
+          if [ -n "$bad" ]; then
+            echo "$bad"
+            echo "::error::le action di terze parti vanno pinnate allo SHA completo con il tag in commento"
+            exit 1
+          fi

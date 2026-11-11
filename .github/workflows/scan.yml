@@ -1,0 +1,77 @@
+# scan: Trivy sul filesystem di un componente (CHK-015, 016): vulnerabilità delle dipendenze, segreti,
+# misconfigurazioni (Dockerfile e IaC). Il ci.yml del prodotto lo chiama una volta per componente.
+# Il report completo (tutte le severità) va nell'artifact scan-<componente> (90 giorni), che
+# soup-evidence recupera al rilascio. Blocca su: vulnerabilità CRITICAL con fix disponibile, qualunque
+# segreto, misconfigurazione HIGH o CRITICAL. Un rischio accettato va in <path>/.trivyignore con il
+# riferimento all'anomalia HE-SOP-006; un segreto trovato va ruotato subito (HE-SOP-012 par. 2).
+name: scan
+on:
+  workflow_call:
+    inputs:
+      path:
+        description: cartella del componente
+        required: true
+        type: string
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    env:
+      COMPONENT_PATH: ${{ inputs.path }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - id: prep
+        run: |
+          name=$(basename "$COMPONENT_PATH")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "report=scan-$name.json" >> "$GITHUB_OUTPUT"
+          if [ -f "$COMPONENT_PATH/.trivyignore" ]; then
+            echo "ignore=$COMPONENT_PATH/.trivyignore" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trivy (filesystem)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25   # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ inputs.path }}
+          scanners: vuln,secret,misconfig
+          format: json
+          output: ${{ steps.prep.outputs.report }}
+          exit-code: "0"
+          trivyignores: ${{ steps.prep.outputs.ignore }}
+
+      - name: Esito
+        env:
+          REPORT: ${{ steps.prep.outputs.report }}
+        run: |
+          set -euo pipefail
+          jq -r '
+            .Results[]? | .Target as $t |
+              ((.Vulnerabilities // [])[] | select(.Severity == "CRITICAL" and (.FixedVersion // "") != "")
+                | "vulnerabilità CRITICAL con fix: \(.VulnerabilityID) \(.PkgName) \(.InstalledVersion) → \(.FixedVersion) (\($t))"),
+              ((.Secrets // [])[]
+                | "segreto: \(.RuleID) in \($t) riga \(.StartLine)"),
+              ((.Misconfigurations // [])[] | select(.Status == "FAIL" and (.Severity == "HIGH" or .Severity == "CRITICAL"))
+                | "misconfigurazione \(.Severity): \(.ID) \(.Title) (\($t))")
+          ' "$REPORT" > blocking.txt
+          {
+            echo "### scan $COMPONENT_PATH"
+            echo
+            jq -r '[.Results[]?.Vulnerabilities[]?] | group_by(.Severity) | map("- \(.[0].Severity): \(length)") | .[]' "$REPORT"
+            echo
+            if [ -s blocking.txt ]; then sed 's/^/- ❌ /' blocking.txt; else echo "✅ nessun elemento bloccante"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -s blocking.txt ]; then
+            while IFS= read -r l; do echo "::error::$l"; done < blocking.txt
+            exit 1
+          fi
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: scan-${{ steps.prep.outputs.name }}
+          path: ${{ steps.prep.outputs.report }}
+          retention-days: 90
+          if-no-files-found: warn

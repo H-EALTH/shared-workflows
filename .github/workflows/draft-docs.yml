@@ -1,0 +1,27 @@
+# draft-docs: bozze dei documenti QMS della messa in esercizio, dopo il rilascio. Segnaposto: l'action
+# draft-docs non è ancora implementata. Mai bloccante, mai asset della Release. Il prodotto lo chiama
+# da un workflow separato (workflow_run del rilascio o workflow_dispatch con il tag).
+name: draft-docs
+on:
+  workflow_call:
+    inputs:
+      product:
+        description: product.yaml in JSON (output `product` di discover)
+        required: true
+        type: string
+      tag:
+        description: tag della Release, es. so-ulss2-v1.2.0
+        required: true
+        type: string
+    secrets:
+      ANTHROPIC_API_KEY:
+        description: per la generazione delle bozze (non ancora usato)
+        required: false
+
+jobs:
+  draft-docs:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    continue-on-error: true
+    steps:
+      - uses: H-EALTH/shared-workflows/actions/draft-docs@v0.5.0

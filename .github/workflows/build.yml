@@ -1,0 +1,146 @@
+# build: immagine di un componente, pubblicata su GHCR solo dopo i controlli (CHK-009, 017, 018). Il
+# ci.yml del prodotto lo chiama su push, una volta per componente, dopo lint, test e scan.
+#   1. build locale `<image>:sha-<short>`;
+#   2. contenuto: nessun file tracciato di experiments/ o notebooks/ dentro l'immagine (CHK-009,
+#      si rimedia con .dockerignore);
+#   3. Trivy sull'immagine: blocca su vulnerabilità CRITICAL con fix (CHK-017), report completo
+#      nell'artifact scan-<componente>-image;
+#   4. SBOM SPDX con syft nell'artifact sbom-<componente> (CHK-018);
+#   5. push su GHCR con il GITHUB_TOKEN; il ref@digest assegnato dal registry va nell'artifact
+#      artifacts-<componente> (artifacts.txt), che verify e release recuperano.
+# Artifact conservati 90 giorni: un rilascio deve partire da un commit di main più recente.
+name: build
+on:
+  workflow_call:
+    inputs:
+      path:
+        description: cartella del componente (contesto di build, con il Dockerfile)
+        required: true
+        type: string
+      image:
+        description: nome dell'immagine senza tag, es. ghcr.io/h-ealth/<repo>/<componente>
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write }
+    env:
+      COMPONENT_PATH: ${{ inputs.path }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - id: prep
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          name=$(basename "$COMPONENT_PATH")
+          image=$(printf '%s' "$IMAGE" | tr '[:upper:]' '[:lower:]')
+          {
+            echo "name=$name"
+            echo "image=$image"
+            echo "ref=$image:sha-${GITHUB_SHA::7}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build locale
+        env:
+          REF: ${{ steps.prep.outputs.ref }}
+        run: |
+          docker build \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            -t "$REF" "$COMPONENT_PATH"
+
+      - name: Contenuto (CHK-009)
+        env:
+          REF: ${{ steps.prep.outputs.ref }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git ls-files -- "$COMPONENT_PATH" | grep -E '(^|/)(experiments|notebooks)/' || true)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "nessun file di experiments/ o notebooks/ nel contesto di build"
+            exit 0
+          fi
+          cid=$(docker create "$REF" sh)
+          docker export "$cid" | tar -t > "$RUNNER_TEMP/image-files.txt"
+          docker rm "$cid" > /dev/null
+          rc=0
+          for f in "${files[@]}"; do
+            suffix=$(printf '%s\n' "$f" | grep -oE '(experiments|notebooks)/.*$')
+            if awk -v s="/$suffix" '{ p = "/" $0; if (length(p) >= length(s) && substr(p, length(p) - length(s) + 1) == s) { hit = 1; exit } } END { exit !hit }' "$RUNNER_TEMP/image-files.txt"; then
+              echo "::error::CHK-009: $f è nell'immagine: aggiungere la cartella a $COMPONENT_PATH/.dockerignore"
+              rc=1
+            fi
+          done
+          exit "$rc"
+
+      - name: Trivy (immagine)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25   # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ steps.prep.outputs.ref }}
+          scanners: vuln
+          format: json
+          output: scan-${{ steps.prep.outputs.name }}-image.json
+          exit-code: "0"
+
+      - name: Esito Trivy (CHK-017)
+        env:
+          REPORT: scan-${{ steps.prep.outputs.name }}-image.json
+        run: |
+          set -euo pipefail
+          jq -r '
+            .Results[]? | .Target as $t | (.Vulnerabilities // [])[]
+              | select(.Severity == "CRITICAL" and (.FixedVersion // "") != "")
+              | "vulnerabilità CRITICAL con fix: \(.VulnerabilityID) \(.PkgName) \(.InstalledVersion) → \(.FixedVersion) (\($t))"
+          ' "$REPORT" > "$RUNNER_TEMP/blocking.txt"
+          if [ -s "$RUNNER_TEMP/blocking.txt" ]; then
+            while IFS= read -r l; do echo "::error::$l"; done < "$RUNNER_TEMP/blocking.txt"
+            echo "aggiornare la dipendenza o il digest del FROM (immagine base pinnata)"
+            exit 1
+          fi
+
+      - name: SBOM (CHK-018)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c   # v0.24.3
+        with:
+          image: ${{ steps.prep.outputs.ref }}
+          format: spdx-json
+          output-file: sbom-${{ steps.prep.outputs.name }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Push su GHCR
+        env:
+          REF: ${{ steps.prep.outputs.ref }}
+          IMAGE: ${{ steps.prep.outputs.image }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$REF"
+          digest=$(docker inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$REF" | grep -m1 "^$IMAGE@sha256:")
+          echo "$digest" > artifacts.txt
+          echo "### build $COMPONENT_PATH" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$digest\` (tag \`${REF##*:}\`)" >> "$GITHUB_STEP_SUMMARY"
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: scan-${{ steps.prep.outputs.name }}-image
+          path: scan-${{ steps.prep.outputs.name }}-image.json
+          retention-days: 90
+          if-no-files-found: ignore
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom-${{ steps.prep.outputs.name }}
+          path: sbom-${{ steps.prep.outputs.name }}.spdx.json
+          retention-days: 90
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v7
+        with:
+          name: artifacts-${{ steps.prep.outputs.name }}
+          path: artifacts.txt
+          retention-days: 90
+          if-no-files-found: error

@@ -63,6 +63,7 @@ senza interpretarli.
 
 | Action | Usata da | Output |
 |---|---|---|
+| `discover` | `discover.yml` | `product`, `components` (JSON) |
 | `pr-checks` | `pr-checks.yml` | esito del job |
 | `test-evidence` | `release.yml` | `test-report.csv`, `coverage.csv` |
 | `soup-evidence` | `release.yml` | `scan-report.csv`, `<PROD>-REC-001_Lista-SOUP.csv`, `soup-diff.csv` |
