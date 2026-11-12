@@ -44,5 +44,5 @@ jobs:
           {
             echo "### candidate $TAG"
             echo
-            sed 's/.*/- `&`/' "$list"
+            sed "s/.*/- \`&\`/" "$list"
           } >> "$GITHUB_STEP_SUMMARY"

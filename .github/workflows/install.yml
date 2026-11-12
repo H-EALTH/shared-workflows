@@ -81,7 +81,7 @@ jobs:
           {
             echo "### install $TAG"
             echo
-            sed 's/.*/- `&`/' "$RUNNER_TEMP/images.txt"
+            sed "s/.*/- \`&\`/" "$RUNNER_TEMP/images.txt"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Stato del cluster
