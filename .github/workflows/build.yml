@@ -7,7 +7,7 @@
 #      nell'artifact scan-<componente>-image;
 #   4. SBOM SPDX con syft nell'artifact sbom-<componente> (CHK-018);
 #   5. push su GHCR con il GITHUB_TOKEN; il ref@digest assegnato dal registry va nell'artifact
-#      artifacts-<componente> (artifacts.txt), che verify e release recuperano.
+#      artifacts-<componente> (artifacts.txt), che verify e il rilascio recuperano.
 # Artifact conservati 90 giorni: un rilascio deve partire da un commit di main più recente.
 name: build
 on:

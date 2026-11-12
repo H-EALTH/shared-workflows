@@ -1,0 +1,48 @@
+# candidate: primo job di deploy.yml del prodotto, lanciato a mano sul tag <prefix>-vX.Y.Z. Ritrova la
+# versione candidata che deliver ha pubblicato: la Release del tag e il suo allegato artifacts.txt (un
+# ref@digest per componente). Non ricontrolla tag e componenti: la Release esiste solo se promote e
+# qms-records sono passati. L'output `images` è ciò che install mette sul cluster. Vedi docs/cd.md.
+name: candidate
+on:
+  workflow_call:
+    outputs:
+      images:
+        description: immagini della versione candidata in JSON (lista di ref@digest)
+        value: ${{ jobs.candidate.outputs.images }}
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    outputs:
+      images: ${{ steps.images.outputs.images }}
+    steps:
+      - id: images
+        name: Release e artifacts.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_TYPE" != tag ]; then
+            echo "::error::deploy si lancia su un tag (ref: $GITHUB_REF): gh workflow run deploy.yml --ref <tag>"; exit 1
+          fi
+          draft=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2> /dev/null || true)
+          if [ "$draft" != false ]; then
+            echo "::error::nessuna Release pubblicata per $TAG: il run deliver del tag deve essere verde"; exit 1
+          fi
+          if ! gh release download "$TAG" -R "$GITHUB_REPOSITORY" --pattern artifacts.txt --dir "$RUNNER_TEMP"; then
+            echo "::error::la Release $TAG non ha l'allegato artifacts.txt"; exit 1
+          fi
+          list="$RUNNER_TEMP/artifacts.txt"
+          if [ ! -s "$list" ] || grep -qvE '^ghcr\.io/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$' "$list"; then
+            echo "::error::artifacts.txt della Release $TAG vuoto o non nel formato ref@sha256:…"; exit 1
+          fi
+          echo "images=$(jq -Rnc '[inputs]' < "$list")" >> "$GITHUB_OUTPUT"
+          {
+            echo "### candidate $TAG"
+            echo
+            sed 's/.*/- `&`/' "$list"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -47,7 +47,7 @@ jobs:
           echo "tag citati: $(printf '%s ' "$tags")"
           if [ "$(printf '%s\n' "$tags" | grep -c .)" -ne 1 ]; then
             grep -rnoE 'H-EALTH/shared-workflows(/[^@[:space:]]*)?@v[0-9]+\.[0-9]+\.[0-9]+' .github/workflows actions docs README.md
-            echo "::error::i riferimenti interni devono citare un solo tag (docs/versionamento.md)"
+            echo "::error::i riferimenti interni devono citare un solo tag"
             exit 1
           fi
       - name: Action di terze parti allo SHA

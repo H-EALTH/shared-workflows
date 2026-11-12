@@ -1,0 +1,89 @@
+# install: ultimo job di deploy.yml del prodotto, dopo candidate. Gira su un runner self-hosted che
+# raggiunge il cluster (input `runner`) e installa la versione candidata per digest.
+#   1. fissa ogni immagine al suo digest nell'overlay kustomize del prodotto (input `overlay`);
+#   2. rende i manifest una volta sola: ogni immagine della versione candidata deve comparire;
+#   3. `kubectl apply` e attesa del rollout di Deployment, StatefulSet e DaemonSet.
+# Sul runner servono kubectl (già autorizzato sul namespace del prodotto), kustomize e jq. Tornare
+# indietro è rilanciare deploy sul tag precedente. Vedi docs/cd.md.
+name: install
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: immagini in JSON, lista di ref@digest (output `images` di candidate)
+        required: true
+        type: string
+      runner:
+        description: etichetta del runner self-hosted che raggiunge il cluster
+        required: true
+        type: string
+      overlay:
+        description: cartella dell'overlay kustomize nel repository del prodotto
+        required: false
+        type: string
+        default: deploy/dev
+      timeout:
+        description: secondi di attesa del rollout di ogni workload
+        required: false
+        type: number
+        default: 300
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  install:
+    runs-on: ${{ inputs.runner }}
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      # il contesto `runner` non è ammesso in `env` di workflow o di job: MANIFEST si fissa qui
+      - run: echo "MANIFEST=$RUNNER_TEMP/manifest.yaml" >> "$GITHUB_ENV"
+
+      - name: Manifest con i digest
+        env:
+          IMAGES: ${{ inputs.images }}
+          OVERLAY: ${{ inputs.overlay }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "$OVERLAY/kustomization.yaml" ]; then
+            echo "::error::$OVERLAY/kustomization.yaml assente"; exit 1
+          fi
+          jq -r '.[]' <<< "$IMAGES" > "$RUNNER_TEMP/images.txt"
+          while IFS= read -r ref; do
+            (cd "$OVERLAY" && kustomize edit set image "${ref%@*}=$ref")
+          done < "$RUNNER_TEMP/images.txt"
+          kustomize build "$OVERLAY" > "$MANIFEST"
+          rc=0
+          while IFS= read -r ref; do
+            if ! grep -qF "$ref" "$MANIFEST"; then
+              echo "::error::${ref%@*} non è nei manifest di $OVERLAY: ogni componente della versione va installato"
+              rc=1
+            fi
+          done < "$RUNNER_TEMP/images.txt"
+          exit "$rc"
+
+      - name: Apply
+        run: kubectl apply -f "$MANIFEST"
+
+      - name: Rollout
+        env:
+          TIMEOUT: ${{ inputs.timeout }}
+        run: |
+          set -euo pipefail
+          kubectl get -f "$MANIFEST" -o json \
+            | jq -r '(.items // [.])[] | select(.kind == "Deployment" or .kind == "StatefulSet" or .kind == "DaemonSet")
+                     | "\(.kind) \(.metadata.name) \(.metadata.namespace)"' > "$RUNNER_TEMP/workloads.txt"
+          while read -r kind name ns; do
+            kubectl rollout status "$kind/$name" -n "$ns" --timeout="${TIMEOUT}s"
+          done < "$RUNNER_TEMP/workloads.txt"
+          {
+            echo "### install $TAG"
+            echo
+            sed 's/.*/- `&`/' "$RUNNER_TEMP/images.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stato del cluster
+        if: failure()
+        run: kubectl get -f "$MANIFEST" -o wide || true

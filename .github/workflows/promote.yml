@@ -1,0 +1,105 @@
+# promote: primo passo del rilascio, al push di un tag <prefix>-vX.Y.Z. Il deliver.yml del prodotto lo
+# chiama dopo discover. Non costruisce nulla: ritrova gli artefatti che la CI ha pubblicato da main per
+# il commit taggato e ci aggiunge il tag di versione (CHK-020).
+#   1. tag conforme a <prefix>-vX.Y.Z e commit su main;
+#   2. run ci verde su main per il commit: il suo id è l'output `ci-run-id`, da cui le altre stazioni
+#      del rilascio recuperano le prove;
+#   3. artifacts.txt del run ci uguale ai componenti; tag di versione sugli stessi digest.
+name: promote
+on:
+  workflow_call:
+    inputs:
+      components:
+        description: componenti in JSON (output `components` di discover)
+        required: true
+        type: string
+      product:
+        description: product.yaml in JSON (output `product` di discover)
+        required: true
+        type: string
+      ci-workflow:
+        description: file del workflow di CI del prodotto
+        required: false
+        type: string
+        default: ci.yml
+    outputs:
+      ci-run-id:
+        description: id del run ci verde su main per il commit taggato
+        value: ${{ jobs.promote.outputs.ci-run-id }}
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write, actions: read }
+    outputs:
+      ci-run-id: ${{ steps.run.outputs.id }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0, persist-credentials: false }
+
+      - name: Tag (formato e main)
+        env:
+          PRODUCT: ${{ inputs.product }}
+        run: |
+          set -euo pipefail
+          prefix=$(jq -r .tag <<< "$PRODUCT")
+          if [ "$GITHUB_REF_TYPE" != tag ]; then
+            echo "::error::promote parte solo dal push di un tag (ref: $GITHUB_REF)"; exit 1
+          fi
+          if ! [[ "$TAG" =~ ^${prefix}-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag $TAG non conforme: atteso ${prefix}-vX.Y.Z"; exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::il commit $GITHUB_SHA non è su main"; exit 1
+          fi
+
+      - id: run
+        name: Run ci verde su main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_WORKFLOW: ${{ inputs.ci-workflow }}
+        run: |
+          set -euo pipefail
+          id=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$CI_WORKFLOW" --branch main --event push \
+                 --commit "$GITHUB_SHA" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$id" ]; then
+            echo "::error::nessun run ci verde su main per $GITHUB_SHA: aspettare la CI, poi ricreare tag e Release"
+            exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "run ci: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$id"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: artifacts
+          path: ${{ runner.temp }}/ci
+          run-id: ${{ steps.run.outputs.id }}
+          github-token: ${{ github.token }}
+
+      - name: Tag di versione sui digest (CHK-020)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPONENTS: ${{ inputs.components }}
+        run: |
+          set -euo pipefail
+          list="$RUNNER_TEMP/ci/artifacts.txt"
+          expected=$(jq -r '.[].name' <<< "$COMPONENTS" | sort)
+          found=$(sed -E 's/@.*//; s#.*/##' "$list" | sort)
+          if [ "$expected" != "$found" ]; then
+            echo "::error::artifacts.txt del run ci non corrisponde ai componenti: atteso [$(tr '\n' ' ' <<< "$expected")], trovato [$(tr '\n' ' ' <<< "$found")]"
+            exit 1
+          fi
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          echo "### promote $TAG" >> "$GITHUB_STEP_SUMMARY"
+          while IFS= read -r ref; do
+            repo=${ref%@*}; digest=${ref#*@}
+            docker buildx imagetools create --tag "$repo:$TAG" "$ref"
+            got=$(docker buildx imagetools inspect "$repo:$TAG" --format '{{json .Manifest}}' | jq -r .digest)
+            if [ "$got" != "$digest" ]; then
+              echo "::error::$repo:$TAG punta a $got invece di $digest"; exit 1
+            fi
+            echo "- \`$repo:$TAG\` → \`$digest\`" >> "$GITHUB_STEP_SUMMARY"
+          done < "$list"

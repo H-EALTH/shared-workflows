@@ -63,6 +63,7 @@ jobs:
 
       - name: Lint
         run: |
+          set +e   # la shell di default è `bash -e`: senza, il primo comando fallito chiude lo step
           set -uo pipefail
           rc=0
           run() {

@@ -2,7 +2,7 @@
 # del prodotto lo chiama una volta per componente. python: pytest con pytest-cov; node: `npm test`
 # (vitest run) con @vitest/coverage-v8. Esegue le cartelle tests/unit e tests/integration che esistono.
 # junit.xml e coverage.xml (Cobertura) vanno nell'artifact test-<componente> (90 giorni): sono la prova
-# che test-evidence e traceability recuperano al rilascio.
+# che qms-records recupera al rilascio.
 name: test
 on:
   workflow_call:

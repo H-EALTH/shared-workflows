@@ -42,7 +42,7 @@ arc: ARC-002     # codice del componente in docs/architecture/<codice>-ARC-001.m
 - `kind` sceglie i passi di `lint` e `test` e i file obbligatori (tabella sotto).
 - `arc` deve essere la prima cella di una riga della tabella dei componenti di
   `docs/architecture/<codice>-ARC-001.md`, copia nel repository della tabella di HE-TPL-018 par. 2
-  (l'originale controllato resta su Drive). Lo stesso file serve a `pr-checks` e `traceability` per i
+  (l'originale controllato resta su Drive). Lo stesso file serve a `pr-checks` e `qms-records` per i
   nomi `test_arc_nnn_...`.
 - Il nome del componente è il nome della cartella: minuscolo, unico, è anche il nome dell'immagine.
 
