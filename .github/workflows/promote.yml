@@ -4,7 +4,8 @@
 #   1. tag conforme a <prefix>-vX.Y.Z e commit su main;
 #   2. run ci verde su main per il commit: il suo id è l'output `ci-run-id`, da cui le altre stazioni
 #      di release recuperano le prove;
-#   3. artifacts.txt del run ci uguale ai componenti; tag di versione sugli stessi digest.
+#   3. artifacts.txt del run ci uguale ai componenti; tag di versione sugli stessi digest, copiando il
+#      manifest così com'è (immagine singola o indice) e verificando che il tag risolva a quel digest.
 name: promote
 on:
   workflow_call:
@@ -93,10 +94,13 @@ jobs:
             exit 1
           fi
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker buildx version
           echo "### promote $TAG" >> "$GITHUB_STEP_SUMMARY"
           while IFS= read -r ref; do
             repo=${ref%@*}; digest=${ref#*@}
-            docker buildx imagetools create --tag "$repo:$TAG" "$ref"
+            # --prefer-index=false: copia esatta della sorgente. Senza, un manifest singolo (non un
+            # indice) viene avvolto in un nuovo indice e il tag avrebbe un altro digest.
+            docker buildx imagetools create --prefer-index=false --tag "$repo:$TAG" "$ref"
             got=$(docker buildx imagetools inspect "$repo:$TAG" --format '{{json .Manifest}}' | jq -r .digest)
             if [ "$got" != "$digest" ]; then
               echo "::error::$repo:$TAG punta a $got invece di $digest"; exit 1
