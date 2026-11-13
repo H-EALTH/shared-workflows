@@ -1,8 +1,8 @@
-# qms-records: registrazioni del rilascio da allegare a HE-TPL-006 par. 12, con i controlli che si
-# possono fare solo al rilascio. Il deliver.yml del prodotto lo chiama dopo promote. Le prove non si
+# qms-records: registrazioni della versione da allegare a HE-TPL-006 par. 12, con i controlli che si
+# possono fare solo al tag. Il candidate.yml del prodotto lo chiama dopo promote. Le prove non si
 # rifanno: JUnit, copertura, report Trivy e SBOM sono quelli del run ci del commit (input `ci-run-id`).
-# Tre job in parallelo, ognuno con i suoi permessi e il suo artifact evidence-*, che release allega:
-#   tests         test-report.csv, coverage.csv (allegato 1); fallisce se manca una prova o il run ci
+# Tre job in parallelo, ognuno con i suoi permessi e il suo artifact evidence-*, che publish allega:
+#   test-report   test-report.csv, coverage.csv (allegato 1); fallisce se manca una prova o il run ci
 #                 contiene test non superati
 #   soup          scan-report.csv, <PROD>-REC-001_Lista-SOUP.csv, soup-diff.csv (allegato 5, CHK-021)
 #   traceability  <PROD>-REC-002_Matrice-tracciabilita.csv, export User Need e Requisiti (allegato 2,
@@ -30,7 +30,7 @@ on:
         required: true
 
 jobs:
-  tests:
+  test-report:
     runs-on: ubuntu-latest
     permissions: { contents: read, actions: read }
     steps:
@@ -48,7 +48,7 @@ jobs:
           path: ${{ runner.temp }}/evidence/verify
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/collect-test-evidence@v0.5.0
+      - uses: H-EALTH/shared-workflows/actions/collect-test-evidence@v0.0.1
         with:
           components: ${{ inputs.components }}
           product: ${{ inputs.product }}
@@ -56,7 +56,7 @@ jobs:
           out: ${{ runner.temp }}/out
       - uses: actions/upload-artifact@v7
         with:
-          name: evidence-test
+          name: evidence-test-report
           path: ${{ runner.temp }}/out/
           if-no-files-found: error
 
@@ -79,7 +79,7 @@ jobs:
           path: ${{ runner.temp }}/sbom
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/build-soup-list@v0.5.0
+      - uses: H-EALTH/shared-workflows/actions/build-soup-list@v0.0.1
         with:
           components: ${{ inputs.components }}
           product: ${{ inputs.product }}
@@ -111,7 +111,7 @@ jobs:
           path: ${{ runner.temp }}/evidence/verify
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/build-traceability-matrix@v0.5.0
+      - uses: H-EALTH/shared-workflows/actions/build-traceability-matrix@v0.0.1
         with:
           components: ${{ inputs.components }}
           product: ${{ inputs.product }}

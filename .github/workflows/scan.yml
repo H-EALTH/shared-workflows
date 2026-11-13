@@ -1,7 +1,7 @@
 # scan: Trivy sul filesystem di un componente (CHK-015, 016): vulnerabilità delle dipendenze, segreti,
 # misconfigurazioni (Dockerfile e IaC). Il ci.yml del prodotto lo chiama una volta per componente.
 # Il report completo (tutte le severità) va nell'artifact scan-<componente> (90 giorni), che
-# qms-records recupera al rilascio. Blocca su: vulnerabilità CRITICAL con fix disponibile, qualunque
+# qms-records recupera al tag. Blocca su: vulnerabilità CRITICAL con fix disponibile, qualunque
 # segreto, misconfigurazione HIGH o CRITICAL. Un rischio accettato va in <path>/.trivyignore con il
 # riferimento all'anomalia HE-SOP-006; un segreto trovato va ruotato subito (HE-SOP-012 par. 2).
 name: scan

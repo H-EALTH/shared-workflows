@@ -4,12 +4,12 @@ Due flussi, uno dopo l'altro, sugli artefatti che la [CI](ci.md) ha pubblicato d
 
 | Flusso | Quando parte | Stazioni |
 |---|---|---|
-| [Delivery](#delivery) | push di un tag `<prefix>-vX.Y.Z` | `discover` → `promote` → `qms-records` → `release` |
-| [Deploy](#deploy) | a mano, sul tag, con la Release pubblicata | `candidate` → `install` |
+| [Candidate](#candidate) | push di un tag `<prefix>-vX.Y.Z` | `discover` → `promote` → `qms-records` → `publish` |
+| [Deploy](#deploy) | a mano, sul tag, con la Release pubblicata | `resolve` → `install` |
 
-## Delivery
+## Candidate
 
-Parte al push di un tag `<prefix>-vX.Y.Z` (prefisso `tag` di `product.yaml`), dal `deliver.yml` del
+Parte al push di un tag `<prefix>-vX.Y.Z` (prefisso `tag` di `product.yaml`), dal `candidate.yml` del
 prodotto. Quattro job, come per la CI uno per stazione. Dopo `promote`, `qms-records` produce le
 registrazioni con tre job in parallelo. Non c'è build e non c'è installazione, che è un flusso a parte
 ([deploy](#deploy)): ritrova gli artefatti che la [CI](ci.md) ha pubblicato da `main` per il commit
@@ -20,34 +20,34 @@ esercizio (HE-TPL-006 par. 12).
 flowchart LR
     DI[discover] --> P["promote<br>CHK-020, 018"]
     subgraph Q[qms-records]
-        T["tests<br>unit, integration, verify"]
+        T["test-report<br>unit, integration, verify"]
         S["soup<br>SBOM, scan, REC-001, CHK-021"]
         M["traceability<br>REC-002, CHK-001...006"]
     end
     P --> T
     P --> S
     P --> M
-    T --> R["release<br>candidate"]
+    T --> R["publish<br>Release candidate"]
     S --> R
     M --> R
 ```
 
 Le registrazioni non sono solo allegati: `qms-records` è anche l'ultimo controllo prima della Release.
-`soup` (CHK-021) e `traceability` (CHK-001...006) controllano ciò che si vede solo al rilascio; un loro
-errore ferma il rilascio prima che la Release esista. Corretta la causa (lista SOUP, documenti Linear,
+`soup` (CHK-021) e `traceability` (CHK-001...006) controllano ciò che si vede solo al tag; un loro
+errore ferma `candidate` prima che la Release esista. Corretta la causa (lista SOUP, documenti Linear,
 issue), basta rilanciare i job falliti dello stesso run.
 
 Un tag non è una messa in esercizio (HE-SOP-004 par. 4.1): la Release si chiama `candidate <tag>` ed è
 una prerelease. La messa in esercizio è il documento HE-TPL-006 firmato, con questi allegati, su Drive.
 
-### `deliver.yml` del prodotto
+### `candidate.yml` del prodotto
 
 Ogni stazione è un workflow riusabile. `promote` restituisce `ci-run-id`, il run `ci` da cui le altre
 stazioni recuperano le prove; gli artifact `evidence-*` passano da una stazione all'altra dentro lo
-stesso run di `deliver`. Ogni job concede solo i permessi della sua stazione.
+stesso run di `candidate`. Ogni job concede solo i permessi della sua stazione.
 
 ```yaml
-name: deliver
+name: candidate
 on:
   push:
     tags: ["so-ulss2-v*"]
@@ -56,12 +56,12 @@ permissions: {}
 
 jobs:
   discover:
-    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.5.0
+    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.0.1
     permissions: { contents: read }
 
   promote:
     needs: discover
-    uses: H-EALTH/shared-workflows/.github/workflows/promote.yml@v0.5.0
+    uses: H-EALTH/shared-workflows/.github/workflows/promote.yml@v0.0.1
     permissions: { contents: read, packages: write, actions: read }
     with:
       components: ${{ needs.discover.outputs.components }}
@@ -69,7 +69,7 @@ jobs:
 
   qms-records:
     needs: [discover, promote]
-    uses: H-EALTH/shared-workflows/.github/workflows/qms-records.yml@v0.5.0
+    uses: H-EALTH/shared-workflows/.github/workflows/qms-records.yml@v0.0.1
     permissions: { contents: read, actions: read, pull-requests: read }
     with:
       components: ${{ needs.discover.outputs.components }}
@@ -78,9 +78,9 @@ jobs:
     secrets:
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
 
-  release:
+  publish:
     needs: [discover, promote, qms-records]
-    uses: H-EALTH/shared-workflows/.github/workflows/release.yml@v0.5.0
+    uses: H-EALTH/shared-workflows/.github/workflows/publish.yml@v0.0.1
     permissions: { contents: write, actions: read, pull-requests: read }
     with:
       product: ${{ needs.discover.outputs.product }}
@@ -89,7 +89,7 @@ jobs:
 
 Se il workflow di CI del prodotto non si chiama `ci.yml`, `promote` riceve anche `ci-workflow`.
 
-### Prerequisiti del delivery
+### Prerequisiti di candidate
 
 - il commit taggato è su `main` e ha un run `ci` verde su `main` (quindi `build` ed `verify` eseguiti);
 - `docs/<PROD>-REC-001_Lista-SOUP.csv` committata e allineata alle dipendenze (CHK-021);
@@ -108,22 +108,22 @@ non si cancella (HE-SOP-004 par. 2.3).
 
 ## Deploy
 
-Si lancia a mano su un tag `<prefix>-vX.Y.Z`, dal `deploy.yml` del prodotto, dopo che [delivery](#delivery)
-ha pubblicato la Release del tag. Due job, uno per stazione: `candidate` ritrova la versione candidata,
+Si lancia a mano su un tag `<prefix>-vX.Y.Z`, dal `deploy.yml` del prodotto, dopo che [candidate](#candidate)
+ha pubblicato la Release del tag. Due job, uno per stazione: `resolve` ritrova la versione candidata,
 `install` la mette sul cluster Kubernetes di sviluppo. Non c'è build e non c'è nessun controllo rifatto:
 si installano per digest le stesse immagini che la [CI](ci.md) ha provato e `promote` ha taggato.
 
 ```mermaid
 flowchart LR
-    C["candidate<br>Release del tag, artifacts.txt"] --> I["install<br>digest, apply, rollout"]
+    R["resolve<br>Release del tag, artifacts.txt"] --> I["install<br>digest, apply, rollout"]
 ```
 
 | Stazione | Dove gira | Cosa fa | Fallisce se |
 |---|---|---|---|
-| `candidate` | runner di GitHub | scarica `artifacts.txt` dalla Release del tag e restituisce `images` (lista di `ref@digest`) | il ref non è un tag, la Release non c'è o è in bozza, manca `artifacts.txt` |
+| `resolve` | runner di GitHub | scarica `artifacts.txt` dalla Release del tag e restituisce `images` (lista di `ref@digest`) | il ref non è un tag, la Release non c'è o è in bozza, manca `artifacts.txt` |
 | `install` | runner self-hosted nel cluster | fissa i digest nell'overlay, `kubectl apply`, attende il rollout | un componente non è nei manifest, l'apply fallisce, il rollout non finisce entro `timeout` |
 
-`candidate` legge la Release e non il run `ci`: gli allegati di una Release non scadono, gli artifact
+`resolve` legge la Release e non il run `ci`: gli allegati di una Release non scadono, gli artifact
 della CI dopo 90 giorni sì. Non ricontrolla tag e componenti, perché la Release esiste solo se `promote`
 e `qms-records` sono passati.
 
@@ -138,16 +138,16 @@ on: workflow_dispatch
 permissions: {}
 
 jobs:
-  candidate:
-    uses: H-EALTH/shared-workflows/.github/workflows/candidate.yml@v0.5.0
+  resolve:
+    uses: H-EALTH/shared-workflows/.github/workflows/resolve.yml@v0.0.1
     permissions: { contents: read }
 
   install:
-    needs: candidate
-    uses: H-EALTH/shared-workflows/.github/workflows/install.yml@v0.5.0
+    needs: resolve
+    uses: H-EALTH/shared-workflows/.github/workflows/install.yml@v0.0.1
     permissions: { contents: read }
     with:
-      images: ${{ needs.candidate.outputs.images }}
+      images: ${{ needs.resolve.outputs.images }}
       runner: dev-cluster
 ```
 
@@ -182,7 +182,7 @@ resources:
 
 ### Prerequisiti del deploy
 
-- la Release `candidate <tag>` pubblicata da `deliver`;
+- la Release `candidate <tag>` pubblicata da `candidate`;
 - un runner self-hosted registrato sul repository (o sull'organizzazione) con l'etichetta passata in
   `runner`, dentro il cluster o sul server: si collega lui a GitHub, il cluster non espone nulla;
 - sul runner: `kubectl`, `kustomize`, `jq`; `kubectl` già autorizzato sul namespace del prodotto

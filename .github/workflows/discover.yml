@@ -1,4 +1,4 @@
-# discover: primo job di ci.yml e deliver.yml del prodotto. Legge product.yaml e i component.yaml,
+# discover: primo job di ci.yml e candidate.yml del prodotto. Legge product.yaml e i component.yaml,
 # verifica le convenzioni e restituisce `product` e `components` (la matrix degli altri job). Vedi
 # docs/ci.md.
 name: discover
@@ -23,4 +23,4 @@ jobs:
       - uses: actions/checkout@v7
         with: { persist-credentials: false }
       - id: discover
-        uses: H-EALTH/shared-workflows/actions/parse-manifests@v0.5.0
+        uses: H-EALTH/shared-workflows/actions/parse-manifests@v0.0.1

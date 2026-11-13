@@ -1,9 +1,9 @@
-# promote: primo passo del rilascio, al push di un tag <prefix>-vX.Y.Z. Il deliver.yml del prodotto lo
+# promote: secondo job di candidate.yml del prodotto, al push di un tag <prefix>-vX.Y.Z. Il workflow lo
 # chiama dopo discover. Non costruisce nulla: ritrova gli artefatti che la CI ha pubblicato da main per
 # il commit taggato e ci aggiunge il tag di versione (CHK-020).
 #   1. tag conforme a <prefix>-vX.Y.Z e commit su main;
 #   2. run ci verde su main per il commit: il suo id è l'output `ci-run-id`, da cui le altre stazioni
-#      del rilascio recuperano le prove;
+#      di candidate recuperano le prove;
 #   3. artifacts.txt del run ci uguale ai componenti; tag di versione sugli stessi digest.
 name: promote
 on:

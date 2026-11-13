@@ -1,4 +1,4 @@
-# install: ultimo job di deploy.yml del prodotto, dopo candidate. Gira su un runner self-hosted che
+# install: ultimo job di deploy.yml del prodotto, dopo resolve. Gira su un runner self-hosted che
 # raggiunge il cluster (input `runner`) e installa la versione candidata per digest.
 #   1. fissa ogni immagine al suo digest nell'overlay kustomize del prodotto (input `overlay`);
 #   2. rende i manifest una volta sola: ogni immagine della versione candidata deve comparire;
@@ -10,7 +10,7 @@ on:
   workflow_call:
     inputs:
       images:
-        description: immagini in JSON, lista di ref@digest (output `images` di candidate)
+        description: immagini in JSON, lista di ref@digest (output `images` di resolve)
         required: true
         type: string
       runner:

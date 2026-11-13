@@ -1,9 +1,9 @@
-# release: ultimo passo del rilascio. Il deliver.yml del prodotto lo chiama dopo qms-records. Produce
+# publish: ultimo job di candidate.yml del prodotto, dopo qms-records. Produce
 # pull-requests.csv (allegato 3) e la Release «candidate <tag>», prerelease, con tutti gli allegati di
 # HE-TPL-006 par. 12, singoli e in bundle-<tag>.zip:
 #   - gli artifact evidence-* di questo run (allegati 1, 2, 5);
 #   - artifacts.txt e SBOM (allegato 4) del run ci del commit.
-name: release
+name: publish
 on:
   workflow_call:
     inputs:
@@ -20,7 +20,7 @@ env:
   TAG: ${{ github.ref_name }}
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
     permissions: { contents: write, actions: read, pull-requests: read }
     steps:
@@ -44,7 +44,7 @@ jobs:
           path: ${{ runner.temp }}/out
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/collect-release-notes@v0.5.0
+      - uses: H-EALTH/shared-workflows/actions/collect-release-notes@v0.0.1
         with:
           product: ${{ inputs.product }}
           tag: ${{ github.ref_name }}
@@ -73,7 +73,7 @@ jobs:
           gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --prerelease \
             --title "candidate $TAG" --notes-file "$RUNNER_TEMP/notes.md"
           {
-            echo "### release $TAG"
+            echo "### publish $TAG"
             echo
             for f in "$OUT"/*; do echo "- \`$(basename "$f")\`"; done
           } >> "$GITHUB_STEP_SUMMARY"
