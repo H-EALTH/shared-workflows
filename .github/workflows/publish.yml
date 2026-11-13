@@ -44,7 +44,7 @@ jobs:
           path: ${{ runner.temp }}/out
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/collect-release-notes@v0.0.3
+      - uses: H-EALTH/shared-workflows/actions/collect-release-notes@v0.0.4
         with:
           product: ${{ inputs.product }}
           tag: ${{ github.ref_name }}

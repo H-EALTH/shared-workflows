@@ -22,7 +22,7 @@ jobs:
           exit 1
       - uses: actions/checkout@v7
         with: { persist-credentials: false }
-      - uses: H-EALTH/shared-workflows/actions/validate-pr@v0.0.3
+      - uses: H-EALTH/shared-workflows/actions/validate-pr@v0.0.4
         with:
           product: ${{ inputs.product }}
           pr: ${{ github.event.pull_request.number }}

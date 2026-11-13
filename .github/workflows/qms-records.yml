@@ -44,7 +44,7 @@ jobs:
           path: ${{ runner.temp }}/evidence/verify
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/collect-test-evidence@v0.0.3
+      - uses: H-EALTH/shared-workflows/actions/collect-test-evidence@v0.0.4
         with:
           components: ${{ inputs.components }}
           product: ${{ inputs.product }}
@@ -75,7 +75,7 @@ jobs:
           path: ${{ runner.temp }}/sbom
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/build-soup-list@v0.0.3
+      - uses: H-EALTH/shared-workflows/actions/build-soup-list@v0.0.4
         with:
           components: ${{ inputs.components }}
           product: ${{ inputs.product }}
@@ -107,7 +107,7 @@ jobs:
           path: ${{ runner.temp }}/evidence/verify
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/build-traceability-matrix@v0.0.3
+      - uses: H-EALTH/shared-workflows/actions/build-traceability-matrix@v0.0.4
         with:
           components: ${{ inputs.components }}
           product: ${{ inputs.product }}
