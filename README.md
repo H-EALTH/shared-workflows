@@ -1,7 +1,7 @@
 # shared-workflows
 
 Workflow GitHub Actions e action riutilizzabili per la CI/CD dei prodotti H-EALTH. I prodotti li chiamano
-con il tag completo: `H-EALTH/shared-workflows/.github/workflows/<stazione>.yml@v0.0.1`.
+con il tag completo: `H-EALTH/shared-workflows/.github/workflows/<stazione>.yml@v0.0.2`.
 
 Come si usano: [docs/ci.md](docs/ci.md) (CI) e [docs/cd.md](docs/cd.md) (release e deploy).
 

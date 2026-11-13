@@ -56,12 +56,12 @@ permissions: {}
 
 jobs:
   discover:
-    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.0.1
+    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.0.2
     permissions: { contents: read }
 
   promote:
     needs: discover
-    uses: H-EALTH/shared-workflows/.github/workflows/promote.yml@v0.0.1
+    uses: H-EALTH/shared-workflows/.github/workflows/promote.yml@v0.0.2
     permissions: { contents: read, packages: write, actions: read }
     with:
       components: ${{ needs.discover.outputs.components }}
@@ -69,7 +69,7 @@ jobs:
 
   qms-records:
     needs: [discover, promote]
-    uses: H-EALTH/shared-workflows/.github/workflows/qms-records.yml@v0.0.1
+    uses: H-EALTH/shared-workflows/.github/workflows/qms-records.yml@v0.0.2
     permissions: { contents: read, actions: read, pull-requests: read }
     with:
       components: ${{ needs.discover.outputs.components }}
@@ -80,7 +80,7 @@ jobs:
 
   publish:
     needs: [discover, promote, qms-records]
-    uses: H-EALTH/shared-workflows/.github/workflows/publish.yml@v0.0.1
+    uses: H-EALTH/shared-workflows/.github/workflows/publish.yml@v0.0.2
     permissions: { contents: write, actions: read, pull-requests: read }
     with:
       product: ${{ needs.discover.outputs.product }}
@@ -139,12 +139,12 @@ permissions: {}
 
 jobs:
   resolve:
-    uses: H-EALTH/shared-workflows/.github/workflows/resolve.yml@v0.0.1
+    uses: H-EALTH/shared-workflows/.github/workflows/resolve.yml@v0.0.2
     permissions: { contents: read }
 
   install:
     needs: resolve
-    uses: H-EALTH/shared-workflows/.github/workflows/install.yml@v0.0.1
+    uses: H-EALTH/shared-workflows/.github/workflows/install.yml@v0.0.2
     permissions: { contents: read }
     with:
       images: ${{ needs.resolve.outputs.images }}
