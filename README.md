@@ -3,7 +3,7 @@
 Workflow GitHub Actions e action riutilizzabili per la CI/CD dei prodotti H-EALTH. I prodotti li chiamano
 con il tag completo: `H-EALTH/shared-workflows/.github/workflows/<stazione>.yml@v0.0.1`.
 
-Come si usano: [docs/ci.md](docs/ci.md) (CI) e [docs/cd.md](docs/cd.md) (candidate e deploy).
+Come si usano: [docs/ci.md](docs/ci.md) (CI) e [docs/cd.md](docs/cd.md) (release e deploy).
 
 ## Workflow
 
@@ -11,16 +11,16 @@ Tutti `on: workflow_call`, tranne `check.yml`.
 
 | Workflow | Flusso | Cosa fa |
 |---|---|---|
-| `discover.yml` | CI, candidate | legge `product.yaml` e i `component.yaml`, verifica le convenzioni, produce la matrix |
+| `discover.yml` | CI, release | legge `product.yaml` e i `component.yaml`, verifica le convenzioni, produce la matrix |
 | `pr-checks.yml` | CI (PR) | branch, Closes/Part of, definizione di fatto, codici dei test, FROM pinnati |
 | `lint.yml` | CI | ruff + mypy (python), eslint + tsc (node) |
 | `test.yml` | CI | tests/unit + tests/integration, JUnit, copertura con soglia |
 | `scan.yml` | CI | Trivy sul filesystem: vulnerabilità con fix, segreti, misconfig |
 | `build.yml` | CI (push) | immagine locale → contenuto, Trivy, SBOM → push su GHCR `sha-<short>` |
 | `verify.yml` | CI (push) | compose con le immagini per digest, dati sintetici, tests/system |
-| `promote.yml` | candidate | tag conforme e su `main`, run ci verde, tag di versione sugli stessi digest |
-| `qms-records.yml` | candidate | registrazioni di HE-TPL-006 dal run ci: `test-report`, `soup`, `traceability` |
-| `publish.yml` | candidate | `pull-requests.csv`, Release «candidate» con tutti gli allegati |
+| `promote.yml` | release | tag conforme e su `main`, run ci verde, tag di versione sugli stessi digest |
+| `qms-records.yml` | release | registrazioni di HE-TPL-006 dal run ci: `test-report`, `soup`, `traceability` |
+| `publish.yml` | release | `pull-requests.csv`, Release «candidate» con tutti gli allegati |
 | `resolve.yml` | deploy | Release del tag e il suo `artifacts.txt`, restituisce le immagini per digest |
 | `install.yml` | deploy | su un runner self-hosted: digest nell'overlay kustomize, `kubectl apply`, attesa del rollout |
 | `check.yml` | - | CI di questo repository: actionlint, ruff, pin interni |

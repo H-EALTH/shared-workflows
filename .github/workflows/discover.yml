@@ -1,4 +1,4 @@
-# discover: primo job di ci.yml e candidate.yml del prodotto. Legge product.yaml e i component.yaml,
+# discover: primo job di ci.yml e release.yml del prodotto. Legge product.yaml e i component.yaml,
 # verifica le convenzioni e restituisce `product` e `components` (la matrix degli altri job). Vedi
 # docs/ci.md.
 name: discover

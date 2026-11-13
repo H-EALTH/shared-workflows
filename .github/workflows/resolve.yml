@@ -1,5 +1,5 @@
 # resolve: primo job di deploy.yml del prodotto, lanciato a mano sul tag <prefix>-vX.Y.Z. Ritrova la
-# versione candidata che candidate ha pubblicato: la Release del tag e il suo allegato artifacts.txt (un
+# versione candidata che release ha pubblicato: la Release del tag e il suo allegato artifacts.txt (un
 # ref@digest per componente). Non ricontrolla tag e componenti: la Release esiste solo se promote e
 # qms-records sono passati. L'output `images` è ciò che install mette sul cluster. Vedi docs/cd.md.
 name: resolve
@@ -31,7 +31,7 @@ jobs:
           fi
           draft=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2> /dev/null || true)
           if [ "$draft" != false ]; then
-            echo "::error::nessuna Release pubblicata per $TAG: il run candidate del tag deve essere verde"; exit 1
+            echo "::error::nessuna Release pubblicata per $TAG: il run release del tag deve essere verde"; exit 1
           fi
           if ! gh release download "$TAG" -R "$GITHUB_REPOSITORY" --pattern artifacts.txt --dir "$RUNNER_TEMP"; then
             echo "::error::la Release $TAG non ha l'allegato artifacts.txt"; exit 1

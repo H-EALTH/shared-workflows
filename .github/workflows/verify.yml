@@ -6,7 +6,7 @@
 #   4. tests/system/seed.sh se esiste (dati sintetici, mai dati di paziente);
 #   5. pytest tests/system (dipendenze in tests/system/requirements.txt): test con il codice del
 #      requisito nel nome, `test_req_nnn_...`. Nessun test raccolto è un fallimento.
-# Artifact `verify` (junit.xml) e `artifacts` (artifacts.txt), 90 giorni: li recupera candidate.
+# Artifact `verify` (junit.xml) e `artifacts` (artifacts.txt), 90 giorni: li recupera release.
 name: verify
 on:
   workflow_call:

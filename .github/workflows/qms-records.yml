@@ -1,5 +1,5 @@
 # qms-records: registrazioni della versione da allegare a HE-TPL-006 par. 12, con i controlli che si
-# possono fare solo al tag. Il candidate.yml del prodotto lo chiama dopo promote. Le prove non si
+# possono fare solo al tag. Il release.yml del prodotto lo chiama dopo promote. Le prove non si
 # rifanno: JUnit, copertura, report Trivy e SBOM sono quelli del run ci del commit (input `ci-run-id`).
 # Tre job in parallelo, ognuno con i suoi permessi e il suo artifact evidence-*, che publish allega:
 #   test-report   test-report.csv, coverage.csv (allegato 1); fallisce se manca una prova o il run ci

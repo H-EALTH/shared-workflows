@@ -1,4 +1,4 @@
-# publish: ultimo job di candidate.yml del prodotto, dopo qms-records. Produce
+# publish: ultimo job di release.yml del prodotto, dopo qms-records. Produce
 # pull-requests.csv (allegato 3) e la Release «candidate <tag>», prerelease, con tutti gli allegati di
 # HE-TPL-006 par. 12, singoli e in bundle-<tag>.zip:
 #   - gli artifact evidence-* di questo run (allegati 1, 2, 5);
