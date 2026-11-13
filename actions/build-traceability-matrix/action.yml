@@ -1,8 +1,8 @@
-# build-traceability-matrix — genera la matrice di tracciabilità (HE-SOP-003 par. 5, 13 colonne fisse) da cinque
-# fonti: documenti User Need e Requisiti del progetto Linear, piè delle issue, relazione issue →
-# sotto-issue → pull request (Closes / Part of), nomi dei test di integrazione e di sistema (JUnit del
-# run ci), rapporti di prova manuale HE-TPL-024 in docs/. Deterministica: legge solo codici e
-# collegamenti. Fallisce su CHK-001, 002, 003, 004, 006. Congela i due export Linear.
+# build-traceability-matrix — genera la matrice di tracciabilità (HE-SOP-003 par. 5, 13 colonne fisse) da quattro
+# fonti: docs/requirements/<PROD>-UserNeed.md e <PROD>-Requisiti.md, pull request fuse (Closes / Part of
+# e piè `Requisiti:` / `Verifica:` nella descrizione), nomi dei test di integrazione e di sistema (JUnit
+# del run ci), rapporti di prova manuale HE-TPL-024 in docs/. Deterministica: legge solo codici e
+# collegamenti. Fallisce su CHK-001, 002, 003, 004. Congela i due documenti al tag.
 name: build-traceability-matrix
 description: Matrice di tracciabilità <PROD>-REC-002 ed export congelati di User Need e Requisiti
 inputs:

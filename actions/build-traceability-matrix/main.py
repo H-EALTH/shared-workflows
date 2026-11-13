@@ -1,7 +1,11 @@
 """build-traceability-matrix: <PROD>-REC-002_Matrice-tracciabilita.csv + export congelati di User Need e Requisiti.
 
-Variabili: COMPONENTS, PRODUCT (JSON), EVIDENCE, OUT (cartelle), TAG, LINEAR_API_KEY, GH_TOKEN,
-GITHUB_REPOSITORY, GITHUB_SHA.
+Variabili: COMPONENTS, PRODUCT (JSON), EVIDENCE, OUT (cartelle), TAG, GH_TOKEN, GITHUB_REPOSITORY,
+GITHUB_SHA.
+
+Fonti: docs/requirements/<PROD>-UserNeed.md e <PROD>-Requisiti.md (tabelle di HE-SOP-003 par. 1),
+pull request fuse (`Closes` / `Part of H-n` e piè `Requisiti: REQ-nnn` / `Verifica: REQ-nnn, RC-nn`
+nella descrizione), JUnit del run ci, rapporti di prova manuale in docs/.
 
 Colonne fisse (HE-SOP-003 par. 5): user_need, requisito, arc, issue, pull_request,
 componente_codice, test, esito_test, rsk, rc, verifica_misura_rischio, versione_rilascio, note.
@@ -34,19 +38,6 @@ COLUMNS = [
     "versione_rilascio",
     "note",
 ]
-ATTIVITA = "attività"
-
-
-def labels_of(issue: dict) -> set[str]:
-    return {label["name"].strip().lower() for label in (issue.get("labels") or {}).get("nodes", [])}
-
-
-def is_done(issue: dict) -> bool:
-    return (issue.get("state") or {}).get("type") == "completed"
-
-
-def is_canceled(issue: dict) -> bool:
-    return (issue.get("state") or {}).get("type") == "canceled"
 
 
 def manual_reports(version: str, tag: str, sha: str) -> list[dict]:
@@ -92,64 +83,41 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     errors: list[str] = []
 
-    # --- Linear: documenti e issue
-    ref = product.get("linear_progetto")
-    if not ref:
-        H.fail("product.yaml: manca `linear_progetto` (nome, slug o id del progetto Linear)")
-    project = H.linear_project(ref)
-    docs = H.linear_documents(project["id"])
-    un_md, req_md = H.linear_document(docs, "User Need"), H.linear_document(docs, "Requisiti")
+    # --- documenti User Need e Requisiti, versionati nel repository
+    req_dir = Path("docs/requirements")
+    un_path, req_path = req_dir / f"{codice}-UserNeed.md", req_dir / f"{codice}-Requisiti.md"
+    for p in (un_path, req_path):
+        if not p.is_file():
+            H.fail(f"manca {p} (HE-SOP-003 par. 1)")
+    un_md, req_md = un_path.read_text(encoding="utf-8"), req_path.read_text(encoding="utf-8")
     user_needs = H.parse_user_needs(un_md)
-    requisiti = {k: v for k, v in H.parse_requisiti(req_md).items() if not v["stato"].startswith("superat")}
+    all_requisiti = H.parse_requisiti(req_md)
+    requisiti = {k: v for k, v in all_requisiti.items() if not v["stato"].startswith("superat")}
     if not requisiti:
-        H.fail("documento Requisiti di Linear senza requisiti attivi (REQ-nnn)")
+        H.fail(f"{req_path} senza requisiti attivi (REQ-nnn)")
     today = date.today().isoformat()
+    origin = f"repository {repo}, commit {sha[:7]}, tag {tag}"
     (out / f"UserNeed_{codice}_{today}.md").write_text(
-        H.frozen_export("User Need", codice, un_md, f"Linear, progetto {project['name']}, tag {tag}"), encoding="utf-8"
+        H.frozen_export("User Need", codice, un_md, f"{un_path.as_posix()}, {origin}"), encoding="utf-8"
     )
     (out / f"Requisiti_{codice}_{today}.md").write_text(
-        H.frozen_export("Requisiti", codice, req_md, f"Linear, progetto {project['name']}, tag {tag}"), encoding="utf-8"
+        H.frozen_export("Requisiti", codice, req_md, f"{req_path.as_posix()}, {origin}"), encoding="utf-8"
     )
 
     arc_doc = Path("docs/architecture") / f"{codice}-ARC-001.md"
     arc_codes = H.parse_arc_codes(arc_doc.read_text(encoding="utf-8")) if arc_doc.is_file() else set()
 
-    issues = [i for i in H.linear_issues(project["id"]) if not is_canceled(i)]
-    by_id = {i["identifier"]: i for i in issues}
-    parents = {i["identifier"]: i for i in issues if not i.get("parent")}
-    children = {i["identifier"]: i for i in issues if i.get("parent")}
-    footers = {k: H.parse_issue_footer(v.get("description") or "") for k, v in parents.items()}
-
-    # CHK-001 sui codici citati nelle issue
-    for k, f in footers.items():
-        for code in f["requisiti"] + f["verifica"]:
-            if code not in requisiti and code not in H.parse_requisiti(req_md):
-                errors.append(f"CHK-001: {k} cita {code}, che non esiste nel documento Requisiti")
-
-    # --- GitHub: pull request fuse → sotto-issue → issue madre
+    # --- GitHub: pull request fuse, con `Closes` / `Part of H-n` e piè `Requisiti:` / `Verifica:`
     prs = [p for p in H.gh_api(f"repos/{repo}/pulls?state=closed&per_page=100") if p.get("merged_at")]
-    prs_of_issue: dict[str, list[str]] = {}
+    links: list[dict] = []  # {pr, issues, footer}
     for p in prs:
-        for _, iss in H.pr_links(p.get("body") or ""):
-            prs_of_issue.setdefault(iss, []).append(f"#{p['number']}")
-    prs_of_parent: dict[str, list[str]] = {}
-    for k, c in children.items():
-        parent = c["parent"]["identifier"]
-        prs_of_parent.setdefault(parent, []).extend(prs_of_issue.get(k, []))
-    for k in parents:  # una issue senza figlie può avere la PR direttamente
-        prs_of_parent.setdefault(k, []).extend(prs_of_issue.get(k, []))
-
-    # CHK-006: sotto-issue chiusa senza pull request, o senza madre nota
-    for k, c in children.items():
-        parent_id = c["parent"]["identifier"]
-        parent = by_id.get(parent_id)
-        if parent is None:
-            errors.append(f"CHK-006: sotto-issue {k} con madre {parent_id} fuori dal progetto o cancellata")
-            continue
-        if ATTIVITA in labels_of(parent) or ATTIVITA in labels_of(c):
-            continue
-        if is_done(c) and not prs_of_issue.get(k):
-            errors.append(f"CHK-006: sotto-issue {k} chiusa senza pull request con `Closes {k}` o `Part of {k}`")
+        body = p.get("body") or ""
+        footer = H.parse_issue_footer(body)
+        links.append({"pr": f"#{p['number']}", "issues": sorted({i for _, i in H.pr_links(body)}), "footer": footer})
+        # CHK-001 sui codici citati nelle pull request
+        for code in footer["requisiti"] + footer["verifica"]:
+            if code not in all_requisiti:
+                errors.append(f"CHK-001: PR #{p['number']} cita {code}, che non esiste in {req_path.name}")
 
     # --- test automatici di integrazione e sistema (JUnit del run ci)
     tests: list[dict] = []  # {kind, code, name, result, component, level}
@@ -195,25 +163,23 @@ def main() -> None:
         )
     for t in tests:
         if t["kind"] == "req" and t["code"] not in requisiti:
-            errors.append(f"CHK-001: test {t['name']} cita {t['code']}, non attivo nel documento Requisiti")
+            errors.append(f"CHK-001: test {t['name']} cita {t['code']}, non attivo in {req_path.name}")
         if t["kind"] == "arc" and arc_codes and t["code"] not in arc_codes:
             errors.append(f"CHK-001: test {t['name']} cita {t['code']}, che non esiste in {arc_doc.name}")
 
     manual = manual_reports(version, tag, sha)
     for m in manual:
         if m["requisito"] not in requisiti:
-            errors.append(f"CHK-001: {m['test']} cita {m['requisito']}, non attivo nel documento Requisiti")
+            errors.append(f"CHK-001: {m['test']} cita {m['requisito']}, non attivo in {req_path.name}")
 
     # --- matrice
     rows: list[dict] = []
     for code, r in sorted(requisiti.items()):
-        issue_ids = sorted(k for k, f in footers.items() if code in f["requisiti"] or code in f["verifica"])
-        pr_list = sorted({p for k in issue_ids for p in prs_of_parent.get(k, [])}, key=lambda s: int(s[1:]))
-        rsk = sorted(
-            {x for k in issue_ids for x in footers[k]["rsk"]}
-            | {H.norm_rc(f"RSK-{n}") for k in issue_ids for n in H.RE_RSK.findall(parents[k]["title"])}
-        )
-        rc = sorted(set(filter(None, r["rc"].split(", "))) | {x for k in issue_ids for x in footers[k]["rc"]})
+        cited = [x for x in links if code in x["footer"]["requisiti"] or code in x["footer"]["verifica"]]
+        issue_ids = sorted({i for x in cited for i in x["issues"]}, key=lambda s: int(s[2:]))
+        pr_list = sorted({x["pr"] for x in cited}, key=lambda s: int(s[1:]))
+        rsk = sorted({y for x in cited for y in x["footer"]["rsk"]})
+        rc = sorted(set(filter(None, r["rc"].split(", "))) | {y for x in cited for y in x["footer"]["rc"]})
         evidence_tests = [t for t in tests if t["kind"] == "req" and t["code"] == code] + [
             {"name": m["test"], "result": m["esito"], "component": "manuale"} for m in manual if m["requisito"] == code
         ]
@@ -238,7 +204,7 @@ def main() -> None:
         if rc and not passed:
             errors.append(f"CHK-004: {code} attua {' '.join(rc)} senza un test superato che ne verifichi l'efficacia")
         if r["user_need"] and r["user_need"] not in user_needs:
-            errors.append(f"CHK-001: {code} cita User Need {r['user_need']}, assente nel documento User Need")
+            errors.append(f"CHK-001: {code} cita User Need {r['user_need']}, assente in {un_path.name}")
         for t in evidence_tests:
             rows.append(base | {"componente_codice": t["component"], "test": t["name"], "esito_test": t["result"]})
     for t in sorted(tests, key=lambda t: (t["code"], t["name"])):

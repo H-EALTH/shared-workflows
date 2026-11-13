@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
 import helib as H  # noqa: E402
 
-PRODUCT_KEYS = ("codice", "tag", "copertura_minima", "linear_progetto")
+PRODUCT_KEYS = ("codice", "tag", "copertura_minima")
 COMPONENT_KEYS = ("kind", "arc")
 REQUIRED_FILES = {
     "python": ("Dockerfile", "pyproject.toml", "requirements-dev.txt"),
@@ -91,8 +91,6 @@ def read_product(errors: list[str]) -> dict:
             product["copertura_minima"] = cov
         except ValueError:
             errors.append(f"{path}: `copertura_minima` '{data['copertura_minima']}' deve essere un intero da 0 a 100")
-    if "linear_progetto" in data and not data["linear_progetto"].strip():
-        errors.append(f"{path}: `linear_progetto` vuoto")
     return product
 
 

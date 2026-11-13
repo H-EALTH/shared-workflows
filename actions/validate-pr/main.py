@@ -1,6 +1,6 @@
 """validate-pr: le regole QMS sulla pull request. Non costruisce, non blocca build: solo gate.
 
-Variabili: PRODUCT (JSON di product.yaml), PR (numero), GH_TOKEN, GITHUB_REPOSITORY, LINEAR_API_KEY.
+Variabili: PRODUCT (JSON di product.yaml), PR (numero), GH_TOKEN, GITHUB_REPOSITORY.
 """
 
 import json
@@ -61,7 +61,6 @@ def main() -> None:
     arc_codes = H.parse_arc_codes(arc_doc.read_text(encoding="utf-8")) if arc_doc.exists() else set()
     if not arc_doc.exists():
         errors.append(("arc", f"manca {arc_doc} (HE-SOP-004 par. 1.2)"))
-    req_codes: set[str] | None = None
     for f in changed:
         if not H.is_test_file(f) or not Path(f).is_file():
             continue
@@ -70,14 +69,8 @@ def main() -> None:
         except OSError:
             continue
         for kind, code in H.test_codes(text):
-            if kind == "arc":
-                if code not in arc_codes:
-                    errors.append(("test", f"{f}: `{code}` non esiste in {arc_doc.name}"))
-            else:
-                if req_codes is None:
-                    req_codes = load_req_codes(product)
-                if code not in req_codes:
-                    errors.append(("test", f"{f}: `{code}` non esiste nel documento Requisiti di Linear"))
+            if kind == "arc" and code not in arc_codes:
+                errors.append(("test", f"{f}: `{code}` non esiste in {arc_doc.name}"))
 
     # 5. FROM pinnati nei Dockerfile toccati (CHK-019)
     for f in changed:
@@ -111,15 +104,6 @@ def main() -> None:
     if errors:
         sys.exit(1)
     print("validate-pr: tutto in regola")
-
-
-def load_req_codes(product: dict) -> set[str]:
-    ref = product.get("linear_progetto")
-    if not ref:
-        H.fail("product.yaml: manca `linear_progetto`, serve per verificare i codici REQ- dei test")
-    project = H.linear_project(ref)
-    docs = H.linear_documents(project["id"])
-    return set(H.parse_requisiti(H.linear_document(docs, "Requisiti")))
 
 
 if __name__ == "__main__":

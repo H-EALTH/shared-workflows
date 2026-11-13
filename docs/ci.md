@@ -26,11 +26,9 @@ flowchart LR
 codice: SO                                   # prefisso dei documenti QMS: SO-ARC-001, SO-REC-001, SO-REC-002
 tag: so-ulss2                                # prefisso del tag: so-ulss2-vX.Y.Z (HE-SOP-004 par. 2.1)
 copertura_minima: 80                         # soglia di test.yml, in percento (HE-TPL-003 par. 4)
-linear_progetto: "Sale Operatorie — Pilota ULSS2"   # progetto Linear con i documenti User Need e Requisiti
 ```
 
-Quattro chiavi, tutte obbligatorie, nessun'altra. `linear_progetto` accetta il nome esatto, lo slug o
-l'id del progetto.
+Tre chiavi, tutte obbligatorie, nessun'altra.
 
 ### `component.yaml`, in ogni cartella componente
 

@@ -13,7 +13,6 @@ import os
 import re
 import subprocess
 import sys
-import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -112,7 +111,7 @@ def _cell(row: dict[str, str], pos: int, *keys: str) -> str:
 
 
 def parse_requisiti(md: str) -> dict[str, dict[str, str]]:
-    """Documento Requisiti di Linear (HE-SOP-003 par. 1): tabella con codice REQ-nnn, testo,
+    """Documento Requisiti (HE-SOP-003 par. 1): tabella con codice REQ-nnn, testo,
     User Need, ARC-, RC-, stato. Le colonne si riconoscono dall'intestazione; se manca,
     per posizione (codice, testo, user need, arc, rc, stato)."""
     out: dict[str, dict[str, str]] = {}
@@ -174,7 +173,7 @@ def parse_arc_codes(md: str) -> set[str]:
 
 
 def parse_issue_footer(description: str) -> dict[str, object]:
-    """Piè della issue (HE-SOP-003 par. 4 punto 4): `User Need: 4 · Requisiti: REQ-012, REQ-013`
+    """Piè della issue o della PR (HE-SOP-003 par. 4 punto 4): `User Need: 4 · Requisiti: REQ-012, REQ-013`
     oppure `Verifica: REQ-012, RC-07`. Se il piè manca, i codici REQ- della sezione
     «Criteri di accettazione»."""
     text = description or ""
@@ -375,7 +374,7 @@ def set_output(name: str, value: str) -> None:
                 f.write(f"{name}={value}\n")
 
 
-# --- GitHub (gh CLI) e Linear (GraphQL) -------------------------------------------------------
+# --- GitHub (gh CLI) -------------------------------------------------------------------------
 
 
 def gh_api(path: str, paginate: bool = True, jq: str | None = None) -> list | dict | str:
@@ -393,86 +392,8 @@ def gh_api(path: str, paginate: bool = True, jq: str | None = None) -> list | di
     return data
 
 
-def linear_graphql(query: str, variables: dict | None = None, api_key: str | None = None) -> dict:
-    key = api_key or os.environ.get("LINEAR_API_KEY") or ""
-    if not key:
-        fail("LINEAR_API_KEY mancante: serve per leggere i documenti User Need e Requisiti")
-    body = json.dumps({"query": query, "variables": variables or {}}).encode()
-    reqo = urllib.request.Request(
-        "https://api.linear.app/graphql", data=body, headers={"Content-Type": "application/json", "Authorization": key}
-    )
-    with urllib.request.urlopen(reqo, timeout=60) as r:
-        data = json.loads(r.read().decode())
-    if data.get("errors"):
-        fail("Linear: " + "; ".join(e.get("message", "?") for e in data["errors"]))
-    return data["data"]
-
-
-def linear_project(ref: str) -> dict:
-    """Progetto Linear per id (UUID), slugId oppure nome esatto."""
-    if re.fullmatch(r"[0-9a-f-]{36}", ref):
-        data = linear_graphql("query($id: String!) { project(id: $id) { id name slugId } }", {"id": ref})
-        if not data.get("project"):
-            fail(f"Linear: progetto '{ref}' non trovato")
-        return data["project"]
-    data = linear_graphql(
-        "query($name: String!) { projects(filter: { or: [{ name: { eq: $name } }, { slugId: { eq: $name } }] }, first: 5) { nodes { id name slugId } } }",
-        {"name": ref},
-    )
-    nodes = data["projects"]["nodes"]
-    if len(nodes) != 1:
-        fail(f"Linear: progetto '{ref}' trovato {len(nodes)} volte (serve un nome esatto, uno slug o un id)")
-    return nodes[0]
-
-
-def linear_documents(project_id: str) -> dict[str, str]:
-    """{titolo: contenuto markdown} dei documenti del progetto."""
-    out, after = {}, None
-    while True:
-        data = linear_graphql(
-            "query($id: String!, $after: String) { project(id: $id) { documents(first: 50, after: $after) { nodes { title content } pageInfo { hasNextPage endCursor } } } }",
-            {"id": project_id, "after": after},
-        )
-        docs = data["project"]["documents"]
-        for d in docs["nodes"]:
-            out[d["title"]] = d.get("content") or ""
-        if not docs["pageInfo"]["hasNextPage"]:
-            return out
-        after = docs["pageInfo"]["endCursor"]
-
-
-def linear_document(docs: dict[str, str], title: str) -> str:
-    """Documento il cui titolo è `title` (senza distinzione di maiuscole, prefisso ammesso)."""
-    exact = [t for t in docs if t.strip().lower() == title.lower()]
-    prefix = [t for t in docs if t.strip().lower().startswith(title.lower())]
-    found = exact or prefix
-    if len(found) != 1:
-        fail(f"Linear: documento «{title}» del progetto trovato {len(found)} volte (atteso uno)")
-    return docs[found[0]]
-
-
-def linear_issues(project_id: str) -> list[dict]:
-    """Issue del progetto (anche archiviate) con identificatore, titolo, descrizione, stato,
-    etichette, madre e figlie."""
-    out, after = [], None
-    while True:
-        data = linear_graphql(
-            """query($id: String!, $after: String) { project(id: $id) { issues(first: 100, after: $after, includeArchived: true) {
-                 nodes { identifier title description completedAt canceledAt
-                         state { name type } labels { nodes { name } }
-                         parent { identifier } children { nodes { identifier } } }
-                 pageInfo { hasNextPage endCursor } } } }""",
-            {"id": project_id, "after": after},
-        )
-        issues = data["project"]["issues"]
-        out += issues["nodes"]
-        if not issues["pageInfo"]["hasNextPage"]:
-            return out
-        after = issues["pageInfo"]["endCursor"]
-
-
 def frozen_export(title: str, product: str, content: str, source: str) -> str:
-    """Export congelato di un documento Linear (HE-SOP-003 par. 5), con intestazione."""
+    """Export congelato di un documento (HE-SOP-003 par. 5), con intestazione."""
     from datetime import date
 
     return (

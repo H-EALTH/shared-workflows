@@ -34,8 +34,8 @@ flowchart LR
 
 Le registrazioni non sono solo allegati: `qms-records` è anche l'ultimo controllo prima della Release.
 `soup` (CHK-021) e `traceability` (CHK-001...006) controllano ciò che si vede solo al tag; un loro
-errore ferma `release` prima che la Release esista. Corretta la causa (lista SOUP, documenti Linear,
-issue), basta rilanciare i job falliti dello stesso run.
+errore ferma `release` prima che la Release esista. Corretta la causa (lista SOUP, documenti in
+`docs/requirements/`, descrizioni delle PR), basta rilanciare i job falliti dello stesso run.
 
 Una release non è una messa in esercizio (HE-SOP-004 par. 4.1, DEC-023): la Release si chiama `candidate <tag>` ed è
 una prerelease. La messa in esercizio è il documento HE-TPL-006 firmato, con questi allegati, su Drive.
@@ -75,8 +75,6 @@ jobs:
       components: ${{ needs.discover.outputs.components }}
       product: ${{ needs.discover.outputs.product }}
       ci-run-id: ${{ needs.promote.outputs.ci-run-id }}
-    secrets:
-      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
 
   publish:
     needs: [discover, promote, qms-records]
@@ -93,8 +91,12 @@ Se il workflow di CI del prodotto non si chiama `ci.yml`, `promote` riceve anche
 
 - il commit taggato è su `main` e ha un run `ci` verde su `main` (quindi `build` ed `verify` eseguiti);
 - `docs/<PROD>-REC-001_Lista-SOUP.csv` committata e allineata alle dipendenze (CHK-021);
-- nel progetto Linear esistono i documenti **User Need** e **Requisiti** nei formati di HE-SOP-003 par. 1;
-- il secret `LINEAR_API_KEY` del repository.
+- `docs/requirements/<PROD>-UserNeed.md` e `docs/requirements/<PROD>-Requisiti.md` committati, con le
+  tabelle di HE-SOP-003 par. 1 (copia nel repository dei documenti controllati, come `<PROD>-ARC-001.md`);
+- le PR fuse che realizzano o verificano un requisito ne riportano il piè nella descrizione, accanto a
+  `Closes H-n` / `Part of H-n`: `Requisiti: REQ-012, REQ-013` oppure `Verifica: REQ-012, RC-07`
+  (eventuali `RSK-nn` nello stesso testo). Da lì la matrice ricava le colonne `issue`, `pull_request`,
+  `rc`, `rsk`.
 
 ### Creare il tag
 

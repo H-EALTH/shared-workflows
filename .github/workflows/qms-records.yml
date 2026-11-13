@@ -5,8 +5,8 @@
 #   test-report   test-report.csv, coverage.csv (allegato 1); fallisce se manca una prova o il run ci
 #                 contiene test non superati
 #   soup          scan-report.csv, <PROD>-REC-001_Lista-SOUP.csv, soup-diff.csv (allegato 5, CHK-021)
-#   traceability  <PROD>-REC-002_Matrice-tracciabilita.csv, export User Need e Requisiti (allegato 2,
-#                 CHK-001...006)
+#   traceability  <PROD>-REC-002_Matrice-tracciabilita.csv, export di docs/requirements/ (allegato 2,
+#                 CHK-001...004)
 # Il chiamante concede contents: read, actions: read, pull-requests: read.
 name: qms-records
 on:
@@ -24,10 +24,6 @@ on:
         description: id del run ci del commit (output `ci-run-id` di promote)
         required: true
         type: string
-    secrets:
-      LINEAR_API_KEY:
-        description: lettura dei documenti User Need e Requisiti e delle issue del progetto Linear
-        required: true
 
 jobs:
   test-report:
@@ -120,7 +116,6 @@ jobs:
           out: ${{ runner.temp }}/out
         env:
           GH_TOKEN: ${{ github.token }}
-          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
       - uses: actions/upload-artifact@v7
         with:
           name: evidence-traceability
