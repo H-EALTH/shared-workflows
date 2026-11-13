@@ -23,4 +23,4 @@ jobs:
       - uses: actions/checkout@v7
         with: { persist-credentials: false }
       - id: discover
-        uses: H-EALTH/shared-workflows/actions/parse-manifests@v0.0.2
+        uses: H-EALTH/shared-workflows/actions/parse-manifests@v0.0.3
