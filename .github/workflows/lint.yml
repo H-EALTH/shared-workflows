@@ -1,7 +1,7 @@
 # lint: analisi statica di un componente (CHK-012). Il ci.yml del prodotto lo chiama una volta per
-# componente (matrix di discover). python: ruff check, ruff format --check, mypy (da
-# requirements-dev.txt); node: npm run lint, npm run typecheck. Tutti i comandi girano anche se uno
-# fallisce; il log completo va nell'artifact lint-<componente> (30 giorni).
+# componente (matrix di discover). python: ruff check, ruff format --check, mypy (dipendenze da
+# requirements.txt, se c'è, e requirements-dev.txt); node: npm run lint, npm run typecheck. Tutti i
+# comandi girano anche se uno fallisce; il log completo va nell'artifact lint-<componente> (30 giorni).
 name: lint
 on:
   workflow_call:
@@ -45,7 +45,9 @@ jobs:
         with:
           python-version: ${{ inputs.python-version }}
           cache: pip
-          cache-dependency-path: ${{ inputs.path }}/requirements-dev.txt
+          cache-dependency-path: |
+            ${{ inputs.path }}/requirements.txt
+            ${{ inputs.path }}/requirements-dev.txt
       - if: inputs.kind == 'node'
         uses: actions/setup-node@v7
         with:
@@ -56,7 +58,9 @@ jobs:
       - name: Dipendenze
         run: |
           case "$KIND" in
-            python) pip install -r requirements-dev.txt ;;
+            python)
+              if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+              pip install -r requirements-dev.txt ;;
             node)   npm ci ;;
             *)      echo "::error::kind '$KIND' non ammesso (python | node)"; exit 1 ;;
           esac

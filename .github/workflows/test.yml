@@ -51,7 +51,9 @@ jobs:
         with:
           python-version: ${{ inputs.python-version }}
           cache: pip
-          cache-dependency-path: ${{ inputs.path }}/requirements-dev.txt
+          cache-dependency-path: |
+            ${{ inputs.path }}/requirements.txt
+            ${{ inputs.path }}/requirements-dev.txt
       - if: inputs.kind == 'node'
         uses: actions/setup-node@v7
         with:
