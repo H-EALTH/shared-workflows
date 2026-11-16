@@ -53,9 +53,14 @@ def scan_rows(evidence: Path, components: list[dict]) -> list[list[str]]:
     for c in components:
         for kind in ("fs", "image"):
             suffix = "" if kind == "fs" else "-image"
-            src = evidence / f"scan-{c['name']}{suffix}" / f"scan-{c['name']}{suffix}.json"
-            if not src.is_file():
-                missing.append(str(src))
+            # security-scan-* da v0.0.6; scan-* per i run ci precedenti (transizione, da rimuovere)
+            candidates = [
+                evidence / f"{prefix}-{c['name']}{suffix}" / f"{prefix}-{c['name']}{suffix}.json"
+                for prefix in ("security-scan", "scan")
+            ]
+            src = next((p for p in candidates if p.is_file()), None)
+            if src is None:
+                missing.append(str(candidates[0]))
                 continue
             rep = json.loads(src.read_text(encoding="utf-8"))
             for r in rep.get("Results") or []:

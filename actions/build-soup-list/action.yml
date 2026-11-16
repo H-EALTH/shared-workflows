@@ -12,7 +12,9 @@ inputs:
     description: product.yaml in JSON (output `product` di discover)
     required: true
   evidence:
-    description: cartella con gli artifact scan-<comp>/ e scan-<comp>-image/ del run ci
+    description: >-
+      cartella con gli artifact security-scan-<comp>/ e security-scan-<comp>-image/ del run ci
+      (scan-<comp>/ e scan-<comp>-image/ per i run ci prima di v0.0.6)
     required: true
   sbom:
     description: cartella con sbom-<comp>.spdx.json (job promote)

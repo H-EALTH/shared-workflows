@@ -2,14 +2,14 @@
 
 Parte su ogni pull request verso `dev` e `main` e su ogni push su `dev` e `main`, dal `ci.yml` del
 prodotto. Sette job più il gate. Dopo `discover`,
-`pr-checks`, `lint`, `test` e `scan` partono in parallelo; `build` ed `verify` solo su push.
+`pr-checks`, `lint`, `test` e `security-scan` partono in parallelo; `build` ed `verify` solo su push.
 
 ```mermaid
 flowchart LR
     D[discover] --> P[pr-checks]
     D --> L["lint<br>× componente"]
     D --> T["test<br>× componente"]
-    D --> S["scan<br>× componente"]
+    D --> S["security-scan<br>× componente"]
     L --> B["build<br>× componente, solo push"]
     T --> B
     S --> B

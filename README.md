@@ -15,7 +15,7 @@ Tutti `on: workflow_call`, tranne `check.yml`.
 | `pr-checks.yml` | CI (PR) | branch, Closes/Part of, definizione di fatto, codici dei test, FROM pinnati |
 | `lint.yml` | CI | ruff + mypy (python), eslint + tsc (node) |
 | `test.yml` | CI | tests/unit + tests/integration, JUnit, copertura con soglia |
-| `scan.yml` | CI | Trivy sul filesystem: vulnerabilità con fix, segreti, misconfig |
+| `security-scan.yml` | CI | Trivy sul filesystem: vulnerabilità con fix, segreti, misconfig |
 | `build.yml` | CI (push) | immagine locale → contenuto, Trivy, SBOM → push su GHCR `sha-<short>` |
 | `verify.yml` | CI (push) | compose con le immagini per digest, dati sintetici, tests/system |
 | `promote.yml` | release | tag conforme e su `main`, run ci verde, tag di versione sugli stessi digest |
