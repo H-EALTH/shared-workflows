@@ -1,10 +1,10 @@
 # build: immagine di un componente, pubblicata su GHCR solo dopo i controlli (CHK-009, 017, 018). Il
-# ci.yml del prodotto lo chiama su push, una volta per componente, dopo lint, test e scan.
+# ci.yml del prodotto lo chiama su push, una volta per componente, dopo lint, test e security-scan.
 #   1. build locale `<image>:sha-<short>`;
 #   2. contenuto: nessun file tracciato di experiments/ o notebooks/ dentro l'immagine (CHK-009,
 #      si rimedia con .dockerignore);
 #   3. Trivy sull'immagine: blocca su vulnerabilità CRITICAL con fix (CHK-017), report completo
-#      nell'artifact scan-<componente>-image;
+#      nell'artifact security-scan-<componente>-image;
 #   4. SBOM SPDX con syft nell'artifact sbom-<componente> (CHK-018);
 #   5. push su GHCR con il GITHUB_TOKEN; il ref@digest assegnato dal registry va nell'artifact
 #      artifacts-<componente> (artifacts.txt), che verify e release recuperano.
@@ -82,12 +82,12 @@ jobs:
           image-ref: ${{ steps.prep.outputs.ref }}
           scanners: vuln
           format: json
-          output: scan-${{ steps.prep.outputs.name }}-image.json
+          output: security-scan-${{ steps.prep.outputs.name }}-image.json
           exit-code: "0"
 
       - name: Esito Trivy (CHK-017)
         env:
-          REPORT: scan-${{ steps.prep.outputs.name }}-image.json
+          REPORT: security-scan-${{ steps.prep.outputs.name }}-image.json
         run: |
           set -euo pipefail
           jq -r '
@@ -127,8 +127,8 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: scan-${{ steps.prep.outputs.name }}-image
-          path: scan-${{ steps.prep.outputs.name }}-image.json
+          name: security-scan-${{ steps.prep.outputs.name }}-image
+          path: security-scan-${{ steps.prep.outputs.name }}-image.json
           retention-days: 90
           if-no-files-found: ignore
       - if: always()

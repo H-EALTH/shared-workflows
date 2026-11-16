@@ -1,10 +1,10 @@
-# scan: Trivy sul filesystem di un componente (CHK-015, 016): vulnerabilità delle dipendenze, segreti,
-# misconfigurazioni (Dockerfile e IaC). Il ci.yml del prodotto lo chiama una volta per componente.
-# Il report completo (tutte le severità) va nell'artifact scan-<componente> (90 giorni), che
-# qms-records recupera al tag. Blocca su: vulnerabilità CRITICAL con fix disponibile, qualunque
+# security-scan: Trivy sul filesystem di un componente (CHK-015, 016): vulnerabilità delle
+# dipendenze, segreti, misconfigurazioni (Dockerfile e IaC). Il ci.yml del prodotto lo chiama una
+# volta per componente. Il report completo (tutte le severità) va nell'artifact
+# security-scan-<componente> (90 giorni), che qms-records recupera al tag. Blocca su: vulnerabilità CRITICAL con fix disponibile, qualunque
 # segreto, misconfigurazione HIGH o CRITICAL. Un rischio accettato va in <path>/.trivyignore con il
 # riferimento all'anomalia HE-SOP-006; un segreto trovato va ruotato subito (HE-SOP-012 par. 2).
-name: scan
+name: security-scan
 on:
   workflow_call:
     inputs:
@@ -14,7 +14,7 @@ on:
         type: string
 
 jobs:
-  scan:
+  security-scan:
     runs-on: ubuntu-latest
     permissions: { contents: read }
     env:
@@ -26,7 +26,7 @@ jobs:
         run: |
           name=$(basename "$COMPONENT_PATH")
           echo "name=$name" >> "$GITHUB_OUTPUT"
-          echo "report=scan-$name.json" >> "$GITHUB_OUTPUT"
+          echo "report=security-scan-$name.json" >> "$GITHUB_OUTPUT"
           if [ -f "$COMPONENT_PATH/.trivyignore" ]; then
             echo "ignore=$COMPONENT_PATH/.trivyignore" >> "$GITHUB_OUTPUT"
           fi
@@ -57,7 +57,7 @@ jobs:
                 | "misconfigurazione \(.Severity): \(.ID) \(.Title) (\($t))")
           ' "$REPORT" > blocking.txt
           {
-            echo "### scan $COMPONENT_PATH"
+            echo "### security-scan $COMPONENT_PATH"
             echo
             jq -r '[.Results[]?.Vulnerabilities[]?] | group_by(.Severity) | map("- \(.[0].Severity): \(length)") | .[]' "$REPORT"
             echo
@@ -71,7 +71,7 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: scan-${{ steps.prep.outputs.name }}
+          name: security-scan-${{ steps.prep.outputs.name }}
           path: ${{ steps.prep.outputs.report }}
           retention-days: 90
           if-no-files-found: warn
