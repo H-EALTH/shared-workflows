@@ -1,14 +1,17 @@
 # manifests: pacchetto di installazione del prodotto per Flux, al tag. Il release.yml del prodotto lo
-# chiama dopo qms-records e prima di publish. Non costruisce immagini: prende i manifest kustomize del
-# prodotto (input `path`), li fissa ai digest che la CI ha pubblicato per il commit e li pubblica come
-# artefatto OCI `ghcr.io/<repo>/manifests:<tag>`, che i server installano da fleet.
+# chiama dopo qms-records e prima di publish. Non costruisce immagini: prende l'overlay kustomize del
+# prodotto per la piattaforma (input `path`), lo fissa ai digest che la CI ha pubblicato per il commit
+# e pubblica i manifest risultanti come artefatto OCI `ghcr.io/<repo>/manifests:<tag>`, che i server
+# installano da fleet.
 #   1. artifacts.txt del run ci (input `ci-run-id`): un ref@digest per componente;
-#   2. `kustomize edit set image` per ogni immagine; ogni componente deve comparire nei manifest e
-#      nessuna immagine del prodotto può restare senza digest;
-#   3. `flux push artifact` con sorgente e revisione; il ref@digest del pacchetto va nell'artifact
+#   2. `kustomize edit set image` per ogni immagine e `kustomize build`: ogni componente deve comparire
+#      nei manifest e nessuna immagine del prodotto può restare senza digest;
+#   3. `flux push artifact` del risultato (un solo file, manifests.yaml: l'overlay può così poggiare
+#      su una base comune, es. ../base); il ref@digest del pacchetto va nell'artifact
 #      evidence-manifests (manifests.txt), che publish allega alla Release.
-# Se la cartella `path` non esiste il prodotto non ha un pacchetto di installazione: la stazione non
-# fa nulla e passa. Nei manifest le immagini si scrivono senza tag, `ghcr.io/h-ealth/<repo>/<componente>`.
+# Se `path` non ha un kustomization.yaml il prodotto non ha un pacchetto di installazione: la stazione
+# non fa nulla e passa. Nei manifest le immagini si scrivono senza tag,
+# `ghcr.io/h-ealth/<repo>/<componente>`.
 name: manifests
 on:
   workflow_call:
@@ -18,10 +21,10 @@ on:
         required: true
         type: string
       path:
-        description: cartella dei manifest kustomize nel repository del prodotto
+        description: overlay kustomize del pacchetto di installazione, nel repository del prodotto
         required: false
         type: string
-        default: deploy/base
+        default: deploy/prod
 
 env:
   TAG: ${{ github.ref_name }}
@@ -70,8 +73,9 @@ jobs:
             fi
             (cd "$MANIFESTS" && kustomize edit set image "$image=$ref")
           done < "$list"
-          kustomize build "$MANIFESTS" > "$RUNNER_TEMP/manifests.yaml"
-          if grep -E "image: ghcr\.io/${repo}/" "$RUNNER_TEMP/manifests.yaml" | grep -v '@sha256:'; then
+          mkdir -p "$RUNNER_TEMP/package"
+          kustomize build "$MANIFESTS" > "$RUNNER_TEMP/package/manifests.yaml"
+          if grep -E "image: ghcr\.io/${repo}/" "$RUNNER_TEMP/package/manifests.yaml" | grep -v '@sha256:'; then
             echo "::error::immagini del prodotto senza digest nel pacchetto: non sono tra i componenti della versione"; exit 1
           fi
 
@@ -83,7 +87,7 @@ jobs:
           set -euo pipefail
           repo=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
           flux push artifact "oci://ghcr.io/$repo/manifests:$TAG" \
-            --path="$MANIFESTS" \
+            --path="$RUNNER_TEMP/package" \
             --source="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --revision="$TAG@sha1:$GITHUB_SHA" \
             --creds="$GITHUB_ACTOR:$GH_TOKEN" \
