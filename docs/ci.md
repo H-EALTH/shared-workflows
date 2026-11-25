@@ -41,7 +41,7 @@ concurrency:
 
 jobs:
   ci:
-    uses: H-EALTH/shared-workflows/.github/workflows/product-ci.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/product-ci.yml@v0.1.1
     permissions: { contents: read, pull-requests: read, packages: write }
 ```
 

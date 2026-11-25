@@ -38,13 +38,25 @@ jobs:
           path: ${{ runner.temp }}/evidence
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
+      # con un solo componente download-artifact estrae i file senza la cartella test-<comp>
+      - name: Cartella test-<componente>
+        env:
+          COMPONENTS: ${{ inputs.components }}
+        run: |
+          set -euo pipefail
+          d="$RUNNER_TEMP/evidence"
+          if [ "$(jq length <<< "$COMPONENTS")" = 1 ] && [ -d "$d" ]; then
+            name=$(jq -r '.[0].name' <<< "$COMPONENTS")
+            mkdir -p "$d/test-$name"
+            find "$d" -maxdepth 1 -type f -exec mv {} "$d/test-$name/" \;
+          fi
       - uses: actions/download-artifact@v8
         with:
           name: verify
           path: ${{ runner.temp }}/evidence/verify
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/collect-test-evidence@v0.1.0
+      - uses: H-EALTH/shared-workflows/actions/collect-test-evidence@v0.1.1
         with:
           components: ${{ inputs.components }}
           product: ${{ inputs.product }}
@@ -75,7 +87,7 @@ jobs:
           path: ${{ runner.temp }}/sbom
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/build-soup-list@v0.1.0
+      - uses: H-EALTH/shared-workflows/actions/build-soup-list@v0.1.1
         with:
           components: ${{ inputs.components }}
           product: ${{ inputs.product }}
@@ -101,13 +113,25 @@ jobs:
           path: ${{ runner.temp }}/evidence
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
+      # con un solo componente download-artifact estrae i file senza la cartella test-<comp>
+      - name: Cartella test-<componente>
+        env:
+          COMPONENTS: ${{ inputs.components }}
+        run: |
+          set -euo pipefail
+          d="$RUNNER_TEMP/evidence"
+          if [ "$(jq length <<< "$COMPONENTS")" = 1 ] && [ -d "$d" ]; then
+            name=$(jq -r '.[0].name' <<< "$COMPONENTS")
+            mkdir -p "$d/test-$name"
+            find "$d" -maxdepth 1 -type f -exec mv {} "$d/test-$name/" \;
+          fi
       - uses: actions/download-artifact@v8
         with:
           name: verify
           path: ${{ runner.temp }}/evidence/verify
           run-id: ${{ inputs.ci-run-id }}
           github-token: ${{ github.token }}
-      - uses: H-EALTH/shared-workflows/actions/build-traceability-matrix@v0.1.0
+      - uses: H-EALTH/shared-workflows/actions/build-traceability-matrix@v0.1.1
         with:
           components: ${{ inputs.components }}
           product: ${{ inputs.product }}
