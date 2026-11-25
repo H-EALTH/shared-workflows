@@ -59,7 +59,7 @@ permissions: {}
 
 jobs:
   release:
-    uses: H-EALTH/shared-workflows/.github/workflows/product-release.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/product-release.yml@v0.1.1
     permissions: { contents: write, packages: write, actions: read, pull-requests: read }
 ```
 
@@ -133,12 +133,12 @@ permissions: {}
 
 jobs:
   resolve:
-    uses: H-EALTH/shared-workflows/.github/workflows/resolve.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/resolve.yml@v0.1.1
     permissions: { contents: read }
 
   install:
     needs: resolve
-    uses: H-EALTH/shared-workflows/.github/workflows/install.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/install.yml@v0.1.1
     permissions: { contents: read }
     with:
       images: ${{ needs.resolve.outputs.images }}

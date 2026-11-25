@@ -21,12 +21,12 @@ on:
 
 jobs:
   discover:
-    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.1.1
     permissions: { contents: read }
 
   promote:
     needs: discover
-    uses: H-EALTH/shared-workflows/.github/workflows/promote.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/promote.yml@v0.1.1
     permissions: { contents: read, packages: write, actions: read }
     with:
       components: ${{ needs.discover.outputs.components }}
@@ -35,7 +35,7 @@ jobs:
 
   qms-records:
     needs: [discover, promote]
-    uses: H-EALTH/shared-workflows/.github/workflows/qms-records.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/qms-records.yml@v0.1.1
     permissions: { contents: read, actions: read, pull-requests: read }
     with:
       components: ${{ needs.discover.outputs.components }}
@@ -44,7 +44,7 @@ jobs:
 
   manifests:
     needs: [promote, qms-records]
-    uses: H-EALTH/shared-workflows/.github/workflows/manifests.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/manifests.yml@v0.1.1
     permissions: { contents: read, packages: write, actions: read }
     with:
       ci-run-id: ${{ needs.promote.outputs.ci-run-id }}
@@ -52,7 +52,7 @@ jobs:
 
   publish:
     needs: [discover, promote, qms-records, manifests]
-    uses: H-EALTH/shared-workflows/.github/workflows/publish.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/publish.yml@v0.1.1
     permissions: { contents: write, actions: read, pull-requests: read }
     with:
       product: ${{ needs.discover.outputs.product }}

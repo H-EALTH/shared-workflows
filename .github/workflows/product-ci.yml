@@ -23,13 +23,13 @@ on:
 
 jobs:
   discover:
-    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.1.1
     permissions: { contents: read }
 
   pr-checks:
     if: github.event_name == 'pull_request'
     needs: discover
-    uses: H-EALTH/shared-workflows/.github/workflows/pr-checks.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/pr-checks.yml@v0.1.1
     permissions: { contents: read, pull-requests: read }
     with:
       product: ${{ needs.discover.outputs.product }}
@@ -40,7 +40,7 @@ jobs:
       fail-fast: false
       matrix:
         c: ${{ fromJSON(needs.discover.outputs.components) }}
-    uses: H-EALTH/shared-workflows/.github/workflows/lint.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/lint.yml@v0.1.1
     permissions: { contents: read }
     with:
       path: ${{ matrix.c.path }}
@@ -54,7 +54,7 @@ jobs:
       fail-fast: false
       matrix:
         c: ${{ fromJSON(needs.discover.outputs.components) }}
-    uses: H-EALTH/shared-workflows/.github/workflows/test.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/test.yml@v0.1.1
     permissions: { contents: read }
     with:
       path: ${{ matrix.c.path }}
@@ -69,7 +69,7 @@ jobs:
       fail-fast: false
       matrix:
         c: ${{ fromJSON(needs.discover.outputs.components) }}
-    uses: H-EALTH/shared-workflows/.github/workflows/security-scan.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/security-scan.yml@v0.1.1
     permissions: { contents: read }
     with:
       path: ${{ matrix.c.path }}
@@ -80,7 +80,7 @@ jobs:
     strategy:
       matrix:
         c: ${{ fromJSON(needs.discover.outputs.components) }}
-    uses: H-EALTH/shared-workflows/.github/workflows/build.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/build.yml@v0.1.1
     permissions: { contents: read, packages: write }
     with:
       path: ${{ matrix.c.path }}
@@ -89,7 +89,7 @@ jobs:
   verify:
     if: github.event_name == 'push'
     needs: build
-    uses: H-EALTH/shared-workflows/.github/workflows/verify.yml@v0.1.0
+    uses: H-EALTH/shared-workflows/.github/workflows/verify.yml@v0.1.1
     permissions: { contents: read, packages: read }
     with:
       python-version: ${{ inputs.python-version }}
