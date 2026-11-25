@@ -34,7 +34,8 @@ jobs:
         run: |
           set -euo pipefail
           # con un solo componente download-artifact estrae il file senza la cartella artifacts-<comp>
-          find "$RUNNER_TEMP/artifacts" -name artifacts.txt -exec cat {} + | sort > artifacts.txt
+          find "$RUNNER_TEMP/artifacts" -name artifacts.txt -exec cat {} + | sort > "$RUNNER_TEMP/refs.txt"
+          mv "$RUNNER_TEMP/refs.txt" artifacts.txt
           if [ ! -s artifacts.txt ]; then echo "::error::nessun artifacts-<componente> dal build"; exit 1; fi
           while IFS= read -r ref; do
             name=${ref%@*}; name=${name##*/}
