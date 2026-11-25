@@ -64,18 +64,20 @@ jobs:
 ```
 
 `product-release` accetta `ci-workflow` (default `ci.yml`), se il workflow di CI del prodotto ha un
-altro nome, e `manifests-path` (default `deploy/base`).
+altro nome, e `manifests-path` (default `deploy/prod`).
 
 ### Pacchetto di installazione (`manifests`)
 
-Se il prodotto ha `deploy/base/kustomization.yaml`, `manifests` fissa le immagini ai digest della
-versione e pubblica la cartella come artefatto OCI `ghcr.io/h-ealth/<repo>/manifests:<tag>`: è ciò che
-Flux installa sui server, dalla riga del prodotto in `fleet`. Il suo `ref@digest` va in `manifests.txt`,
-allegato alla Release. Nei manifest le immagini si scrivono senza tag,
-`ghcr.io/h-ealth/<repo>/<componente>`; ogni componente della versione deve comparire.
+Se il prodotto ha `deploy/prod/kustomization.yaml`, `manifests` fissa le immagini ai digest della
+versione, costruisce l'overlay e pubblica i manifest risultanti come artefatto OCI
+`ghcr.io/h-ealth/<repo>/manifests:<tag>`: è ciò che Flux installa sui server, dalla riga del prodotto
+in `fleet`. Il suo `ref@digest` va in `manifests.txt`, allegato alla Release. Nei manifest le immagini
+si scrivono senza tag, `ghcr.io/h-ealth/<repo>/<componente>`; ogni componente della versione deve
+comparire.
 
-Se la cartella non c'è, la stazione passa senza fare nulla: il prodotto si installa ancora con il
-flusso di [deploy](#deploy) e l'overlay `deploy/dev`.
+`deploy/prod` è l'overlay per i server della piattaforma, senza nulla di un cliente; di solito poggia
+su `deploy/base`, come `deploy/dev`. Se non c'è, la stazione passa senza fare nulla: il prodotto si
+installa solo con il flusso di [deploy](#deploy) e l'overlay `deploy/dev`.
 
 ### Prerequisiti di release
 

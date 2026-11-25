@@ -14,10 +14,10 @@ on:
         type: string
         default: ci.yml
       manifests-path:
-        description: cartella dei manifest kustomize del pacchetto di installazione
+        description: overlay kustomize del pacchetto di installazione
         required: false
         type: string
-        default: deploy/base
+        default: deploy/prod
 
 jobs:
   discover:
