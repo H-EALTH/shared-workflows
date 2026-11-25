@@ -1,7 +1,12 @@
 # shared-workflows
 
 Workflow GitHub Actions e action riutilizzabili per la CI/CD dei prodotti H-EALTH. I prodotti li chiamano
-con il tag completo: `H-EALTH/shared-workflows/.github/workflows/<stazione>.yml@v0.0.6`.
+con il tag completo: `H-EALTH/shared-workflows/.github/workflows/<stazione>.yml@v0.1.0`.
+
+Un prodotto non compone le stazioni a mano: chiama i due flussi già composti, `product-ci.yml` dal suo
+`ci.yml` e `product-release.yml` dal suo `release.yml`. Così una scelta che vale per tutti i prodotti si
+cambia qui, una volta, e i prodotti la ricevono alzando il tag. Le stazioni singole restano chiamabili
+per i repository che non sono prodotti.
 
 Come si usano: [docs/ci.md](docs/ci.md) (CI) e [docs/cd.md](docs/cd.md) (release e deploy).
 
@@ -11,6 +16,8 @@ Tutti `on: workflow_call`, tranne `check.yml`.
 
 | Workflow | Flusso | Cosa fa |
 |---|---|---|
+| `product-ci.yml` | CI | **flusso CI composto**: tutte le stazioni di CI nell'ordine giusto, più il `gate` |
+| `product-release.yml` | release | **flusso di release composto**: `discover` → `promote` → `qms-records` → `manifests` → `publish` |
 | `discover.yml` | CI, release | legge `product.yaml` e i `component.yaml`, verifica le convenzioni, produce la matrix |
 | `pr-checks.yml` | CI (PR) | branch, Closes/Part of, definizione di fatto, codici dei test, FROM pinnati |
 | `lint.yml` | CI | ruff + mypy (python), eslint + tsc (node) |
@@ -20,6 +27,7 @@ Tutti `on: workflow_call`, tranne `check.yml`.
 | `verify.yml` | CI (push) | compose con le immagini per digest, dati sintetici, tests/system |
 | `promote.yml` | release | tag conforme e su `main`, run ci verde, tag di versione sugli stessi digest |
 | `qms-records.yml` | release | registrazioni di HE-TPL-006 dal run ci: `test-report`, `soup`, `traceability` |
+| `manifests.yml` | release | pacchetto di installazione per Flux: manifest kustomize fissati ai digest, pubblicati come artefatto OCI |
 | `publish.yml` | release | `pull-requests.csv`, Release «candidate» con tutti gli allegati |
 | `resolve.yml` | deploy | Release del tag e il suo `artifacts.txt`, restituisce le immagini per digest |
 | `install.yml` | deploy | su un runner self-hosted: digest nell'overlay kustomize, `kubectl apply`, attesa del rollout |

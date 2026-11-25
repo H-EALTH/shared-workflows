@@ -1,0 +1,110 @@
+# manifests: pacchetto di installazione del prodotto per Flux, al tag. Il release.yml del prodotto lo
+# chiama dopo qms-records e prima di publish. Non costruisce immagini: prende i manifest kustomize del
+# prodotto (input `path`), li fissa ai digest che la CI ha pubblicato per il commit e li pubblica come
+# artefatto OCI `ghcr.io/<repo>/manifests:<tag>`, che i server installano da fleet.
+#   1. artifacts.txt del run ci (input `ci-run-id`): un ref@digest per componente;
+#   2. `kustomize edit set image` per ogni immagine; ogni componente deve comparire nei manifest e
+#      nessuna immagine del prodotto può restare senza digest;
+#   3. `flux push artifact` con sorgente e revisione; il ref@digest del pacchetto va nell'artifact
+#      evidence-manifests (manifests.txt), che publish allega alla Release.
+# Se la cartella `path` non esiste il prodotto non ha un pacchetto di installazione: la stazione non
+# fa nulla e passa. Nei manifest le immagini si scrivono senza tag, `ghcr.io/h-ealth/<repo>/<componente>`.
+name: manifests
+on:
+  workflow_call:
+    inputs:
+      ci-run-id:
+        description: id del run ci del commit (output `ci-run-id` di promote)
+        required: true
+        type: string
+      path:
+        description: cartella dei manifest kustomize nel repository del prodotto
+        required: false
+        type: string
+        default: deploy/base
+
+env:
+  TAG: ${{ github.ref_name }}
+  MANIFESTS: ${{ inputs.path }}
+
+jobs:
+  manifests:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write, actions: read }
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+
+      - id: package
+        name: Il prodotto ha un pacchetto di installazione?
+        run: |
+          if [ -f "$MANIFESTS/kustomization.yaml" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$MANIFESTS/kustomization.yaml non c'è: nessun pacchetto di installazione da pubblicare"
+          fi
+
+      - if: steps.package.outputs.present == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: artifacts
+          path: ${{ runner.temp }}/ci
+          run-id: ${{ inputs.ci-run-id }}
+          github-token: ${{ github.token }}
+
+      - if: steps.package.outputs.present == 'true'
+        uses: fluxcd/flux2/action@23dcfe98fe672acdf44ecd9c60cbac41b57f5de8   # v2.10.1
+
+      - name: Immagini fissate ai digest
+        if: steps.package.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          list="$RUNNER_TEMP/ci/artifacts.txt"
+          repo=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          kustomize build "$MANIFESTS" > "$RUNNER_TEMP/before.yaml"
+          while IFS= read -r ref; do
+            image=${ref%@*}
+            if ! grep -qE "image: ${image}(:|@|\s|$)" "$RUNNER_TEMP/before.yaml"; then
+              echo "::error::il componente ${image##*/} non compare nei manifest di $MANIFESTS"; exit 1
+            fi
+            (cd "$MANIFESTS" && kustomize edit set image "$image=$ref")
+          done < "$list"
+          kustomize build "$MANIFESTS" > "$RUNNER_TEMP/manifests.yaml"
+          if grep -E "image: ghcr\.io/${repo}/" "$RUNNER_TEMP/manifests.yaml" | grep -v '@sha256:'; then
+            echo "::error::immagini del prodotto senza digest nel pacchetto: non sono tra i componenti della versione"; exit 1
+          fi
+
+      - name: Pubblica su GHCR
+        if: steps.package.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          flux push artifact "oci://ghcr.io/$repo/manifests:$TAG" \
+            --path="$MANIFESTS" \
+            --source="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --revision="$TAG@sha1:$GITHUB_SHA" \
+            --creds="$GITHUB_ACTOR:$GH_TOKEN" \
+            --output json > "$RUNNER_TEMP/push.json"
+          digest=$(jq -r .digest "$RUNNER_TEMP/push.json")
+          if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            cat "$RUNNER_TEMP/push.json"
+            echo "::error::digest del pacchetto non riconosciuto"; exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/evidence"
+          echo "ghcr.io/$repo/manifests@$digest" > "$RUNNER_TEMP/evidence/manifests.txt"
+          {
+            echo "### manifests $TAG"
+            echo
+            echo "- \`ghcr.io/$repo/manifests:$TAG\` → \`$digest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - if: steps.package.outputs.present == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-manifests
+          path: ${{ runner.temp }}/evidence/manifests.txt
+          if-no-files-found: error
+          retention-days: 90
