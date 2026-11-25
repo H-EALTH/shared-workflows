@@ -1,0 +1,111 @@
+# product-ci: il flusso CI completo di un prodotto, già composto. Il ci.yml del prodotto chiama solo
+# questo workflow; le stazioni sono le stesse di sempre, nell'ordine di docs/ci.md:
+#   discover → pr-checks (solo PR) + lint, test, security-scan (× componente)
+#            → build (× componente, solo push) → verify (solo push) → gate
+# Chi ha un flusso diverso (un repository che non è un prodotto) continua a comporre le stazioni a mano.
+# Il chiamante concede contents: read, pull-requests: read, packages: write; ogni job qui sotto tiene
+# solo i permessi della sua stazione. Il controllo da richiedere nella protezione dei branch è
+# `<job del chiamante> / gate`.
+name: product-ci
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: versione di Python per lint e test dei componenti python e per verify
+        required: false
+        type: string
+        default: "3.12"
+      node-version:
+        description: versione di Node per lint e test dei componenti node
+        required: false
+        type: string
+        default: "22"
+
+jobs:
+  discover:
+    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.1.0
+    permissions: { contents: read }
+
+  pr-checks:
+    if: github.event_name == 'pull_request'
+    needs: discover
+    uses: H-EALTH/shared-workflows/.github/workflows/pr-checks.yml@v0.1.0
+    permissions: { contents: read, pull-requests: read }
+    with:
+      product: ${{ needs.discover.outputs.product }}
+
+  lint:
+    needs: discover
+    strategy:
+      fail-fast: false
+      matrix:
+        c: ${{ fromJSON(needs.discover.outputs.components) }}
+    uses: H-EALTH/shared-workflows/.github/workflows/lint.yml@v0.1.0
+    permissions: { contents: read }
+    with:
+      path: ${{ matrix.c.path }}
+      kind: ${{ matrix.c.kind }}
+      python-version: ${{ inputs.python-version }}
+      node-version: ${{ inputs.node-version }}
+
+  test:
+    needs: discover
+    strategy:
+      fail-fast: false
+      matrix:
+        c: ${{ fromJSON(needs.discover.outputs.components) }}
+    uses: H-EALTH/shared-workflows/.github/workflows/test.yml@v0.1.0
+    permissions: { contents: read }
+    with:
+      path: ${{ matrix.c.path }}
+      kind: ${{ matrix.c.kind }}
+      copertura-minima: ${{ fromJSON(needs.discover.outputs.product).copertura_minima }}
+      python-version: ${{ inputs.python-version }}
+      node-version: ${{ inputs.node-version }}
+
+  security-scan:
+    needs: discover
+    strategy:
+      fail-fast: false
+      matrix:
+        c: ${{ fromJSON(needs.discover.outputs.components) }}
+    uses: H-EALTH/shared-workflows/.github/workflows/security-scan.yml@v0.1.0
+    permissions: { contents: read }
+    with:
+      path: ${{ matrix.c.path }}
+
+  build:
+    if: github.event_name == 'push'
+    needs: [discover, lint, test, security-scan]
+    strategy:
+      matrix:
+        c: ${{ fromJSON(needs.discover.outputs.components) }}
+    uses: H-EALTH/shared-workflows/.github/workflows/build.yml@v0.1.0
+    permissions: { contents: read, packages: write }
+    with:
+      path: ${{ matrix.c.path }}
+      image: ghcr.io/${{ github.repository }}/${{ matrix.c.name }}
+
+  verify:
+    if: github.event_name == 'push'
+    needs: build
+    uses: H-EALTH/shared-workflows/.github/workflows/verify.yml@v0.1.0
+    permissions: { contents: read, packages: read }
+    with:
+      python-version: ${{ inputs.python-version }}
+
+  # Unico controllo richiesto dalla protezione dei branch: verde solo se tutto ciò che doveva girare
+  # è verde. pr-checks gira solo sulle PR, build e verify solo sui push.
+  gate:
+    if: always()
+    needs: [discover, pr-checks, lint, test, security-scan, build, verify]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$RESULTS" | jq -e 'to_entries | any(.value.result == "failure" or .value.result == "cancelled")' > /dev/null; then
+            echo "::error::almeno un job non è verde"; exit 1
+          fi

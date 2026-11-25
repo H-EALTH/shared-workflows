@@ -1,0 +1,59 @@
+# product-release: il flusso di release completo di un prodotto, già composto. Il release.yml del
+# prodotto chiama solo questo workflow, al push di un tag <prefix>-vX.Y.Z; le stazioni sono le stesse
+# di sempre, nell'ordine di docs/cd.md, più il pacchetto di installazione:
+#   discover → promote → qms-records → manifests → publish
+# Il chiamante concede contents: write, packages: write, actions: read, pull-requests: read; ogni job
+# qui sotto tiene solo i permessi della sua stazione.
+name: product-release
+on:
+  workflow_call:
+    inputs:
+      ci-workflow:
+        description: file del workflow di CI del prodotto
+        required: false
+        type: string
+        default: ci.yml
+      manifests-path:
+        description: cartella dei manifest kustomize del pacchetto di installazione
+        required: false
+        type: string
+        default: deploy/base
+
+jobs:
+  discover:
+    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.1.0
+    permissions: { contents: read }
+
+  promote:
+    needs: discover
+    uses: H-EALTH/shared-workflows/.github/workflows/promote.yml@v0.1.0
+    permissions: { contents: read, packages: write, actions: read }
+    with:
+      components: ${{ needs.discover.outputs.components }}
+      product: ${{ needs.discover.outputs.product }}
+      ci-workflow: ${{ inputs.ci-workflow }}
+
+  qms-records:
+    needs: [discover, promote]
+    uses: H-EALTH/shared-workflows/.github/workflows/qms-records.yml@v0.1.0
+    permissions: { contents: read, actions: read, pull-requests: read }
+    with:
+      components: ${{ needs.discover.outputs.components }}
+      product: ${{ needs.discover.outputs.product }}
+      ci-run-id: ${{ needs.promote.outputs.ci-run-id }}
+
+  manifests:
+    needs: [promote, qms-records]
+    uses: H-EALTH/shared-workflows/.github/workflows/manifests.yml@v0.1.0
+    permissions: { contents: read, packages: write, actions: read }
+    with:
+      ci-run-id: ${{ needs.promote.outputs.ci-run-id }}
+      path: ${{ inputs.manifests-path }}
+
+  publish:
+    needs: [discover, promote, qms-records, manifests]
+    uses: H-EALTH/shared-workflows/.github/workflows/publish.yml@v0.1.0
+    permissions: { contents: write, actions: read, pull-requests: read }
+    with:
+      product: ${{ needs.discover.outputs.product }}
+      ci-run-id: ${{ needs.promote.outputs.ci-run-id }}

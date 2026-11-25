@@ -4,14 +4,15 @@ Due flussi, uno dopo l'altro, sugli artefatti che la [CI](ci.md) ha pubblicato d
 
 | Flusso | Quando parte | Stazioni |
 |---|---|---|
-| [Release](#release) | push di un tag `<prefix>-vX.Y.Z` | `discover` → `promote` → `qms-records` → `publish` |
+| [Release](#release) | push di un tag `<prefix>-vX.Y.Z` | `discover` → `promote` → `qms-records` → `manifests` → `publish` |
 | [Deploy](#deploy) | a mano, sul tag, con la Release pubblicata | `resolve` → `install` |
 
 ## Release
 
 Parte al push di un tag `<prefix>-vX.Y.Z` (prefisso `tag` di `product.yaml`), dal `release.yml` del
-prodotto. Quattro job, come per la CI uno per stazione. Dopo `promote`, `qms-records` produce le
-registrazioni con tre job in parallelo. Non c'è build e non c'è installazione, che è un flusso a parte
+prodotto, che chiama il flusso già composto `product-release.yml`. Cinque stazioni. Dopo `promote`,
+`qms-records` produce le registrazioni con tre job in parallelo; poi `manifests` pubblica il pacchetto
+di installazione. Non c'è build e non c'è installazione, che è un flusso a parte
 ([deploy](#deploy)): ritrova gli artefatti che la [CI](ci.md) ha pubblicato da `main` per il commit
 taggato, ci aggiunge il tag di versione e produce le registrazioni da allegare al documento di messa in
 esercizio (HE-TPL-006 par. 12).
@@ -27,9 +28,10 @@ flowchart LR
     P --> T
     P --> S
     P --> M
-    T --> R["publish<br>Release candidate"]
-    S --> R
-    M --> R
+    T --> K["manifests<br>pacchetto OCI"]
+    S --> K
+    M --> K
+    K --> R["publish<br>Release candidate"]
 ```
 
 Le registrazioni non sono solo allegati: `qms-records` è anche l'ultimo controllo prima della Release.
@@ -42,9 +44,10 @@ una prerelease. La messa in esercizio è il documento HE-TPL-006 firmato, con qu
 
 ### `release.yml` del prodotto
 
-Ogni stazione è un workflow riusabile. `promote` restituisce `ci-run-id`, il run `ci` da cui le altre
-stazioni recuperano le prove; gli artifact `evidence-*` passano da una stazione all'altra dentro lo
-stesso run di `release`. Ogni job concede solo i permessi della sua stazione.
+Il prodotto chiama il flusso già composto: un solo job, che concede l'unione dei permessi delle
+stazioni. Dentro il flusso ogni stazione tiene solo i suoi; `promote` passa alle altre `ci-run-id`, il
+run `ci` da cui recuperano le prove, e gli artifact `evidence-*` passano da una stazione all'altra
+dentro lo stesso run di `release`.
 
 ```yaml
 name: release
@@ -55,37 +58,24 @@ on:
 permissions: {}
 
 jobs:
-  discover:
-    uses: H-EALTH/shared-workflows/.github/workflows/discover.yml@v0.0.6
-    permissions: { contents: read }
-
-  promote:
-    needs: discover
-    uses: H-EALTH/shared-workflows/.github/workflows/promote.yml@v0.0.6
-    permissions: { contents: read, packages: write, actions: read }
-    with:
-      components: ${{ needs.discover.outputs.components }}
-      product: ${{ needs.discover.outputs.product }}
-
-  qms-records:
-    needs: [discover, promote]
-    uses: H-EALTH/shared-workflows/.github/workflows/qms-records.yml@v0.0.6
-    permissions: { contents: read, actions: read, pull-requests: read }
-    with:
-      components: ${{ needs.discover.outputs.components }}
-      product: ${{ needs.discover.outputs.product }}
-      ci-run-id: ${{ needs.promote.outputs.ci-run-id }}
-
-  publish:
-    needs: [discover, promote, qms-records]
-    uses: H-EALTH/shared-workflows/.github/workflows/publish.yml@v0.0.6
-    permissions: { contents: write, actions: read, pull-requests: read }
-    with:
-      product: ${{ needs.discover.outputs.product }}
-      ci-run-id: ${{ needs.promote.outputs.ci-run-id }}
+  release:
+    uses: H-EALTH/shared-workflows/.github/workflows/product-release.yml@v0.1.0
+    permissions: { contents: write, packages: write, actions: read, pull-requests: read }
 ```
 
-Se il workflow di CI del prodotto non si chiama `ci.yml`, `promote` riceve anche `ci-workflow`.
+`product-release` accetta `ci-workflow` (default `ci.yml`), se il workflow di CI del prodotto ha un
+altro nome, e `manifests-path` (default `deploy/base`).
+
+### Pacchetto di installazione (`manifests`)
+
+Se il prodotto ha `deploy/base/kustomization.yaml`, `manifests` fissa le immagini ai digest della
+versione e pubblica la cartella come artefatto OCI `ghcr.io/h-ealth/<repo>/manifests:<tag>`: è ciò che
+Flux installa sui server, dalla riga del prodotto in `fleet`. Il suo `ref@digest` va in `manifests.txt`,
+allegato alla Release. Nei manifest le immagini si scrivono senza tag,
+`ghcr.io/h-ealth/<repo>/<componente>`; ogni componente della versione deve comparire.
+
+Se la cartella non c'è, la stazione passa senza fare nulla: il prodotto si installa ancora con il
+flusso di [deploy](#deploy) e l'overlay `deploy/dev`.
 
 ### Prerequisiti di release
 
@@ -141,12 +131,12 @@ permissions: {}
 
 jobs:
   resolve:
-    uses: H-EALTH/shared-workflows/.github/workflows/resolve.yml@v0.0.6
+    uses: H-EALTH/shared-workflows/.github/workflows/resolve.yml@v0.1.0
     permissions: { contents: read }
 
   install:
     needs: resolve
-    uses: H-EALTH/shared-workflows/.github/workflows/install.yml@v0.0.6
+    uses: H-EALTH/shared-workflows/.github/workflows/install.yml@v0.1.0
     permissions: { contents: read }
     with:
       images: ${{ needs.resolve.outputs.images }}

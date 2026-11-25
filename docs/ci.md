@@ -18,6 +18,40 @@ flowchart LR
     E --> OK
 ```
 
+## `ci.yml` del prodotto
+
+Il prodotto chiama il flusso già composto, `product-ci.yml`: un solo job, che al suo interno esegue le
+stazioni del diagramma. Il job concede l'unione dei permessi delle stazioni; dentro il flusso ogni
+stazione tiene solo i suoi.
+
+```yaml
+name: ci
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [dev, main]
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    uses: H-EALTH/shared-workflows/.github/workflows/product-ci.yml@v0.1.0
+    permissions: { contents: read, pull-requests: read, packages: write }
+```
+
+- Il file deve chiamarsi `ci.yml`: è da quel nome che `promote` ritrova il run al momento della release.
+- `product-ci` accetta `python-version` (default `3.12`) e `node-version` (default `22`), passate a
+  `lint`, `test` e `verify`.
+- Nella protezione dei branch il controllo da richiedere è `ci / gate` (job del chiamante, poi `gate`).
+- Un repository che non è un prodotto (nessun `product.yaml`, altre fasi) non usa `product-ci`: compone
+  le stazioni che gli servono, ognuna con `uses: ...@<tag>` e i suoi permessi.
+
 ## Manifest
 
 ### `product.yaml`, nella radice
